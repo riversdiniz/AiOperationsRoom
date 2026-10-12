@@ -26,7 +26,7 @@
 .pixel .pessoa .pp-placa-fundo { fill:rgba(11,10,16,.9); stroke:var(--estado); stroke-width:1.5; }.pixel .pessoa.concluida .pp-placa-fundo { stroke-dasharray:3 3; }.pixel .pessoa .nome { fill:#edebf5; font-size:9px; font-weight:500; }.pixel .pessoa .tempo { fill:#8f8a9e; font-size:8.5px; }.pixel .pessoa:hover .pp-placa-fundo,.pixel .pessoa:focus .pp-placa-fundo { stroke-width:2.5; fill:#1b1530; }
 .pixel .laco.halo { stroke:rgba(164,105,255,.22); stroke-width:8; fill:none; }.pixel .laco.ativo { stroke:#a469ff; stroke-width:2; stroke-linecap:butt; stroke-dasharray:6 6; fill:none; animation:pp-traco .8s linear infinite; }.pixel .laco.pulso { stroke:#fff; stroke-width:1; fill:none; stroke-linecap:butt; stroke-dasharray:2 10; animation:pp-traco .55s linear infinite; }
 @keyframes pp-vidro { 0%,100% { fill:#4b22a0; } 50% { fill:#5b2bb0; } } @keyframes pp-linha-1 { 0% { width:3px; } 100% { width:21px; } } @keyframes pp-linha-2 { 0% { width:3px; } 100% { width:27px; } } @keyframes pp-quadro-a { 0% { visibility:visible; } 50% { visibility:hidden; } } @keyframes pp-quadro-b { 0% { visibility:hidden; } 50% { visibility:visible; } } @keyframes pp-pisca { 0%,100% { opacity:1; } 50% { opacity:.45; } } @keyframes pp-flutua { 0%,100% { transform:translate(0,-78px); } 50% { transform:translate(0,-81px); } } @keyframes pp-traco { to { stroke-dashoffset:-12; } }
-@media (prefers-reduced-motion:reduce) { .pixel .pessoa *, .pixel .pp-tela *, .pixel .pp-tv *, .pixel .laco,.pixel .pp-sala .led { animation:none!important; } }
+@media (prefers-reduced-motion:reduce) { .pixel .pessoa *, .pixel .pp-tela *, .pixel .pp-tv *, .pixel .pp-game *, .pixel .pp-fliper *, .pixel .pp-bola, .pixel .laco,.pixel .pp-sala .led { animation:none!important; } }
 
 /* vida social: balão de fala e TV da sala de estar */
 .pixel .pp-fala { pointer-events:none; animation:pp-fala-entra .2s steps(2); }
@@ -41,3 +41,33 @@
 .pixel .pp-tv.ligada.gol .pp-tv-luz { fill:#ffffff; animation:pp-tv-gol .25s steps(1) infinite; }
 @keyframes pp-tv-tremor { 0% { opacity:.16; } 35% { opacity:.22; } 60% { opacity:.13; } 80% { opacity:.2; } }
 @keyframes pp-tv-gol { 0% { opacity:.4; } 50% { opacity:.12; } }
+
+/* vida social 2: lounge de jogos, banheiro e moedinhas */
+.pixel .pp-game { opacity:0; transition:opacity .4s ease; }
+.pixel .pp-game.jogando { opacity:1; }
+.pixel .pp-game-fundo { fill:#14131a; }
+.pixel .pp-game-divisa { fill:#0d0c12; }
+.pixel .pp-game .m0 .pp-game-pista { fill:#45356e; }
+.pixel .pp-game .m1 .pp-game-pista { fill:#5e2c48; }
+.pixel .pp-game .m0 .pp-game-carro { fill:#e0409a; }
+.pixel .pp-game .m1 .pp-game-carro { fill:#d99a2b; }
+.pixel .pp-game.jogando .pp-game-carro { animation:pp-carro 1.4s steps(9) infinite alternate; }
+.pixel .pp-game.jogando .m1 .pp-game-carro { animation-duration:1.7s; animation-delay:.4s; }
+.pixel .pp-game.jogando.luta .pp-game-carro { animation:pp-luta .5s steps(2) infinite; }
+@keyframes pp-carro { from { transform:translateX(0); } to { transform:translateX(27px); } }
+@keyframes pp-luta { 0% { transform:translateX(9px); } 50% { transform:translateX(15px); } }
+.pixel .pp-fliper-tela { fill:#14131a; }
+.pixel .pp-fliper-nave { fill:transparent; }
+.pixel .pp-fliper.jogando .pp-fliper-tela { fill:#2a1f4a; animation:pp-fliper 1.2s steps(1) infinite; }
+.pixel .pp-fliper.jogando .pp-fliper-nave { fill:#d9c7ff; animation:pp-nave 1.6s steps(6) infinite alternate; }
+.pixel .pp-fliper.jogando .n1 { animation-delay:.6s; }
+@keyframes pp-fliper { 0% { fill:#2a1f4a; } 50% { fill:#33255a; } }
+@keyframes pp-nave { from { transform:translateX(-9px); } to { transform:translateX(9px); } }
+.pixel .pp-bola { fill:#f4f1fb; opacity:0; }
+.pixel .pp-bola.jogando { opacity:1; animation:pp-bola .9s steps(6) infinite alternate; }
+@keyframes pp-bola { from { transform:translateY(0); } to { transform:translateY(45px); } }
+.pixel .pp-moeda { font-size:9px; font-weight:700; pointer-events:none; animation:pp-moeda 1.6s ease-out forwards; }
+.pixel .pp-moeda.ganho { fill:#f5c66b; }
+.pixel .pp-moeda.perda { fill:#c9c3da; }
+@keyframes pp-moeda { from { transform:translateY(0); opacity:1; } to { transform:translateY(-18px); opacity:0; } }
+@media (prefers-reduced-motion:reduce) { .pixel .pp-moeda { animation:none; } }

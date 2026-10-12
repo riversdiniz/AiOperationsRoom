@@ -271,3 +271,108 @@ test('sem nomes de colegas, a fofoca não aparece', () => {
   const fala = px.falaRoda('copa', { nomes: [], data: new Date(2026, 9, 14, 15) }, rnd);
   assert.ok(px.FALAS.trabalho.includes(fala.texto));
 });
+
+/* ------------------------------------------------- vida social: parte 2 */
+
+test('a faixa de baixo tem banheiro e lounge, e seus lugares ficam abaixo da parede da faixa', () => {
+  CENARIOS.forEach((c) => {
+    const plano = px.planejarSala(c, LARGURA);
+    assert.equal(plano.H - plano.Hc, 78);
+    const tipos = (t) => plano.vagas.filter((v) => v.tipo === t);
+    assert.equal(tipos('pia').length, 2);
+    assert.equal(tipos('fliper').length, 2);
+    assert.equal(tipos('game').length, 2);
+    assert.equal(tipos('pingue').length, 2);
+    plano.vagas.filter((v) => ['banheiro', 'lounge'].includes(v.zona)).forEach((v) => {
+      assert.ok(v.y > plano.Hc + 12, `${v.id} abaixo da parede`);
+      assert.ok(v.x >= (v.zona === 'banheiro' ? px.X.banheiro[0] : px.X.lounge[0]), `${v.id} na própria área`);
+    });
+    // passeio comum nunca usa banheiro nem lounge: só as rodas
+    Object.values(px.PESOS).forEach((pesos) => {
+      assert.ok(!('banheiro' in pesos) && !('lounge' in pesos));
+    });
+  });
+});
+
+test('vagasRoda dos jogos e do espelho', () => {
+  const plano = px.planejarSala({ ativos: 1, total: 4 }, LARGURA);
+  const vazio = new Set();
+  assert.deepEqual(px.vagasRoda(plano, 'pingpong', vazio).map((v) => v.id), ['pingue-0', 'pingue-1']);
+  assert.deepEqual(px.vagasRoda(plano, 'videogame', vazio).map((v) => v.id), ['game-0', 'game-1']);
+  assert.deepEqual(px.vagasRoda(plano, 'fliperama', new Set(['fliper-1'])), [], 'fliperama precisa das duas máquinas');
+  assert.deepEqual(px.vagasRoda(plano, 'jokenpo', vazio).map((v) => v.tipo), ['balcao', 'balcao']);
+  assert.deepEqual(px.vagasRoda(plano, 'espelho', new Set(['pia-0'])).map((v) => v.id), ['pia-1']);
+  Object.keys(px.LIMITES_RODA).forEach((tipo) => assert.ok(px.FAMILIA_RODA[tipo], `família de ${tipo}`));
+});
+
+test('perfil: sempre o mesmo para a mesma pessoa, com 2 ou 3 traços sem contradição', () => {
+  const nomes = new Set(px.NOMES.map(([n]) => n));
+  for (let i = 0; i < 300; i += 1) {
+    const chave = `sessao-${i}|agente-${i % 7}`;
+    const p = px.perfil(chave);
+    assert.deepEqual(px.perfil(chave), p, 'determinístico');
+    assert.ok(nomes.has(p.nome));
+    assert.ok(p.artigo === 'a' || p.artigo === 'o');
+    assert.ok(p.tracos.length === 2 || p.tracos.length === 3, `${p.tracos}`);
+    assert.equal(new Set(p.tracos).size, p.tracos.length);
+    p.tracos.forEach((t) => assert.ok(px.TRACOS[t], t));
+    px.OPOSTOS.forEach(([a, b]) => assert.ok(!(p.tracos.includes(a) && p.tracos.includes(b)), `${a} e ${b}`));
+    assert.ok(p.bordao.length > 0);
+  }
+});
+
+test('perfil não repete nome de quem já está na tela', () => {
+  const p = px.perfil('alguem|x');
+  const outro = px.perfil('alguem|x', new Set([p.nome]));
+  assert.notEqual(outro.nome, p.nome);
+});
+
+test('relacao é simétrica, estável e nunca consigo mesmo', () => {
+  let rivais = 0;
+  let amigos = 0;
+  for (let i = 0; i < 200; i += 1) {
+    const a = `a${i}`;
+    const b = `b${i * 3}`;
+    assert.equal(px.relacao(a, b), px.relacao(b, a));
+    assert.equal(px.relacao(a, b), px.relacao(a, b));
+    if (px.relacao(a, b) === 'rival') rivais += 1;
+    if (px.relacao(a, b) === 'amigo') amigos += 1;
+  }
+  assert.equal(px.relacao('x', 'x'), null);
+  assert.ok(rivais > 0 && amigos > 0 && rivais + amigos < 200);
+});
+
+test('aposta nunca passa do menor saldo; jogos sem rivalidade nem apostador valem zero', () => {
+  const comum = { tracos: ['calma', 'leitura'] };
+  const apostador = { tracos: ['apostas'] };
+  const pao = { tracos: ['economia'] };
+  assert.equal(px.aposta('pingpong', comum, comum, 100, 100, false), 0);
+  assert.ok(px.aposta('pingpong', comum, comum, 100, 100, true) > 0);
+  assert.ok(px.aposta('jokenpo', comum, comum, 100, 100, false) > 0);
+  assert.ok(px.aposta('jokenpo', apostador, comum, 100, 100, false) > px.aposta('jokenpo', pao, comum, 100, 100, false));
+  assert.equal(px.aposta('jokenpo', apostador, comum, 100, 7, false), 7);
+  assert.equal(px.aposta('jokenpo', comum, comum, 0, 50, false), 0);
+});
+
+test('jokenpô: pedra ganha de tesoura, tesoura de papel, papel de pedra', () => {
+  assert.equal(px.jokenpo('pedra', 'tesoura'), 1);
+  assert.equal(px.jokenpo('tesoura', 'papel'), 1);
+  assert.equal(px.jokenpo('papel', 'pedra'), 1);
+  assert.equal(px.jokenpo('tesoura', 'pedra'), -1);
+  assert.equal(px.jokenpo('papel', 'papel'), 0);
+});
+
+test('habilidade e afinidade seguem os traços', () => {
+  const gamer = { tracos: ['games'] };
+  const atleta = { tracos: ['esporte'] };
+  assert.ok(px.habilidade(gamer, 'videogame') > px.habilidade(atleta, 'videogame'));
+  assert.ok(px.habilidade(atleta, 'pingpong') > px.habilidade(gamer, 'pingpong'));
+  assert.equal(px.habilidade(gamer, 'jokenpo'), px.habilidade(atleta, 'jokenpo'));
+  assert.ok(px.pesoRoda('espelho', [{ tracos: ['vaidade'] }]) > px.pesoRoda('espelho', [{ tracos: ['leitura'] }]));
+});
+
+test('a fofoca concorda o artigo com o nome', () => {
+  const rnd = () => 0.05; // fofoca, primeira frase
+  const fala = px.falaRoda('copa', { nomes: [{ nome: 'Marina', artigo: 'a' }], data: new Date(2026, 9, 14, 15) }, rnd);
+  assert.equal(fala.texto, 'Viram o commit da Marina? 👀');
+});

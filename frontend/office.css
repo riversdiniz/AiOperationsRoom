@@ -30,3 +30,5 @@
   .periodo { width:100%; }
   .periodo select { width:100%; }
 }
+
+.social-list { padding:0; list-style:none; }.social-list li { padding:10px 0; border-bottom:1px solid var(--borda); line-height:1.6; }.social-list .social-nome { font-weight:600; }.social-list small,.social-list .social-meta { color:var(--texto-2); font-size:12.5px; }.social-list .social-tracos { display:flex; flex-wrap:wrap; gap:4px 10px; }

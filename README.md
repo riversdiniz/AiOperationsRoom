@@ -52,13 +52,21 @@ Use `--port 8876` em qualquer comando de servidor quando a porta padrão já est
 
 ## Vida social
 
-Quando dois ou mais agentes da mesma sala estão à toa (aguardando ou encerrados), de vez em quando eles se juntam numa roda e conversam por balões:
+Cada sala tem, além das estações de trabalho, do café e da sala de estar, uma faixa embaixo com um **banheiro** e um **lounge de jogos**, ligados ao café por uma porta.
 
-- **Papo no balcão:** dois em pé no balcão do café, um de frente para o outro.
-- **Papo na copa:** de dois a quatro nas banquetas e no balcão, com fofoca usando o nome dos colegas, piadas, assuntos de trabalho e do dia e da hora.
-- **TV:** de dois a três na última fileira da sala de estar assistindo futebol, novela ou desenho. A luz da tela ilumina quem assiste e, no futebol, pisca no gol.
+Quando agentes da mesma sala estão à toa (aguardando ou encerrados), de vez em quando eles se juntam numa roda e conversam por balões:
 
-As rodas são só encenação: o estado de cada agente continua no losango e na placa. Quando alguém da roda volta a trabalhar, ele avisa ("Opa, me chamaram!") e sai. Com movimento reduzido ativado no sistema, nenhuma roda nova começa.
+- **Papo no balcão** e **papo na copa:** fofoca com o nome dos colegas, piadas, assuntos de trabalho e do dia e da hora.
+- **TV na sala de estar:** futebol (com gol), novela ou desenho; quem é de sonecas cochila.
+- **Jokenpô valendo moedinhas:** "Jo… ken… pô!", os gestos sobre a cabeça e as moedinhas passando de um para o outro.
+- **Pingue-pongue** até 5 pontos, **videogame** melhor de 3 e **fliperama** no lounge, com placar e provocações entre rivais.
+- **Espelho do banheiro:** sozinho ou em dupla, com o rosto refletido no espelho.
+
+Cada agente tem um nome brasileiro, dois ou três traços de personalidade (Competição, Apostas, Games, Séries e TV, Fofoca, Vaidade, Cafeína, Piadas, Esporte, Timidez, Economia, Sonecas, Calma, Leitura), um bordão, amigos e rivais, sempre os mesmos para o mesmo agente. Os traços decidem a roda que cada um prefere, quem chama quem e quem joga melhor. Tudo aparece na janela de detalhes, ao clicar num agente.
+
+As moedinhas são fictícias: cada agente começa com 🪙100 (subagentes com 🪙30), ganha 🪙5 por pedido atendido e 🪙15 quando um subagente entrega o resultado, e as apostas passam de quem perde para quem ganha. O saldo fica salvo no navegador e é esquecido três dias depois de o agente sumir.
+
+As rodas são só encenação: o estado de cada agente continua no losango e na placa. Quando alguém da roda volta a trabalhar, ele avisa ("Opa, me chamaram!") e sai. Com movimento reduzido ativado no sistema, nenhuma roda nova começa. Para mostrar ou gravar uma roda específica, acrescente `#?roda=pingpong` ao endereço (vale também `conversa`, `copa`, `tv`, `jokenpo`, `videogame`, `fliperama` e `espelho`).
 
 ## Hooks do Claude Code
 

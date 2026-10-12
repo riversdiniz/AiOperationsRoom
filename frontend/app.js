@@ -77,12 +77,21 @@ function renderRoom() {
   else window.EscritorioPixel?.montar(room, data, { historico: () => dashboard.historico_tipos || {}, trajeto: () => $('#show-route')?.checked });
 }
 
+// Vida social (encenação da sala pixel): nome, traços, moedinhas, placar e relações.
+function socialHtml(sessionId) {
+  const pessoas = window.EscritorioPixel && window.EscritorioPixel.social ? window.EscritorioPixel.social(sessionId) : [];
+  if (!pessoas.length) return '';
+  const linha = (conteudo, classe = 'social-meta') => `<div class="${classe}">${conteudo}</div>`;
+  const item = (p) => `<li><div><span class="social-nome">${esc(p.nome)}</span> <small>${esc(p.tipo)}</small></div>${p.atividade ? linha(esc(p.atividade), '') : ''}${linha(`🪙 ${esc(p.moedas)} · ${esc(p.vitorias)} vitória(s) · ${esc(p.derrotas)} derrota(s) · “${esc(p.bordao)}”`)}${linha(p.tracos.map((t) => `<span title="${esc(t.descricao)}">${esc(t.emoji)} ${esc(t.rotulo)}</span>`).join(''), 'social-tracos')}${p.amigos.length ? linha(`Amizades: ${esc(p.amigos.join(', '))}`) : ''}${p.rivais.length ? linha(`Rivalidades: ${esc(p.rivais.join(', '))}`) : ''}${p.extrato.length ? linha(`Extrato: ${p.extrato.map((m) => `${m.valor > 0 ? '+' : '−'}🪙${Math.abs(m.valor)} ${esc(m.motivo)}`).join(' · ')}`) : ''}</li>`;
+  return `<h3>Vida social</h3><ul class="social-list">${pessoas.map(item).join('')}</ul>`;
+}
+
 async function selectSession(sessionId) {
   selected = sessionId;
   renderRoom();
   const [agents, history] = await Promise.all([request('GET', `/sessoes/${encodeURIComponent(sessionId)}/agentes`), request('GET', `/sessoes/${encodeURIComponent(sessionId)}/historico`)]);
   const main = agents.agentes.find((agent) => !agent.pai_chave);
-  $('#details').innerHTML = `<h2>${esc(main?.tipo || 'Sessão')}</h2><p class="status">${esc(states[main?.estado] || '')}</p><p class="detail-path">${esc(main?.cwd || '')}</p><h3>Agentes</h3><ul class="agent-list">${agents.agentes.map((agent) => `<li><span>${esc(agent.tipo)}</span><small>${esc(states[agent.estado])}</small></li>`).join('') || '<li>Nenhum agente registrado.</li>'}</ul><h3>Histórico</h3><ol class="history">${history.eventos.map((event) => `<li><span>${esc(event.nome)}</span><time>${esc(new Date(event.ocorrido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))}</time></li>`).join('') || '<li>Sem eventos.</li>'}</ol>`;
+  $('#details').innerHTML = `<h2>${esc(main?.tipo || 'Sessão')}</h2><p class="status">${esc(states[main?.estado] || '')}</p><p class="detail-path">${esc(main?.cwd || '')}</p><h3>Agentes</h3><ul class="agent-list">${agents.agentes.map((agent) => `<li><span>${esc(agent.tipo)}</span><small>${esc(states[agent.estado])}</small></li>`).join('') || '<li>Nenhum agente registrado.</li>'}</ul>${socialHtml(sessionId)}<h3>Histórico</h3><ol class="history">${history.eventos.map((event) => `<li><span>${esc(event.nome)}</span><time>${esc(new Date(event.ocorrido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))}</time></li>`).join('') || '<li>Sem eventos.</li>'}</ol>`;
   $('#details-modal').innerHTML = $('#details').innerHTML;
   $('#details-dialog').showModal();
 }

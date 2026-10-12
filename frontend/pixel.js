@@ -26,11 +26,14 @@
    ou delegando, e só.
 
    Vida social (ideia do Habblaud, MIT, reimplementada aqui com arte e
-   código próprios): dois ou mais à toa (aguardando ou encerrados) às vezes
-   se juntam numa roda — papo no balcão, papo na copa ou TV na última
-   fileira da sala de estar — e conversam por balões. É encenação: não
-   muda estado nenhum. Quem é chamado (volta a trabalhar) avisa e sai da
-   roda. Com movimento reduzido, não há rodas novas.
+   código próprios): quem está à toa (aguardando ou encerrado) às vezes
+   entra numa roda — papo no balcão, papo na copa, TV na sala de estar,
+   jokenpô valendo moedinhas, pingue-pongue, videogame e fliperama no
+   lounge, espelho no banheiro — e conversa por balões. Cada pessoa tem
+   nome, traços de personalidade, bordão, amigos e rivais, sorteados pela
+   semente dela. É encenação: não muda estado nenhum. Quem é chamado
+   (volta a trabalhar) avisa e sai da roda. Com movimento reduzido, não há
+   rodas novas.
 
    Arte original, desenhada em código. Nenhum sprite vem do Pixel Agents nem
    de pacote de terceiros (lá o código é MIT, mas móveis e pisos não têm
@@ -250,6 +253,16 @@
   const CAFE_X = [148, 182];
   const ESTAR_X = [231, 266, 301];
   const FOLGA = { x: 4, y: 2 }; // meia largura dos pés: a rota não raspa nos móveis
+  // faixa de baixo: banheiro à esquerda, lounge de jogos no resto
+  const BANDA = 78;
+  const PORTA = [150, 178]; // vão na parede da faixa, embaixo do café
+  X.banheiro = [2, 78];
+  X.lounge = [81, 320];
+  const PIAS_X = [24, 58];
+  const FLIPER_X = [100, 134];
+  const GAME_X = [213, 247]; // assentos do sofá do videogame
+  const TV_GAME = { x: 230 };
+  const MESA_PINGUE = { x: 288 };
 
   /* Planta para `ativos` execuções ativas e `total` pessoas na sala. Cresce
      em linhas inteiras: mesa de 3 em 3, café de 2 em 2, sala de estar de 3
@@ -312,10 +325,13 @@
     const fimTrabalho = 40 + (linhasMesa - 1) * 48 + 40;
     const fimCafe = 75 + (linhasCafe - 1) * 43 + 38;
     const fimEstar = 60 + (linhasEstar - 1) * 43 + 22;
-    const H = Math.max(fimTrabalho, fimCafe, fimEstar) + 3;
+    // Hc: fim das três áreas de cima. Abaixo vem a faixa do banheiro e do
+    // lounge de jogos, atrás de uma parede com uma porta que dá no café.
+    const Hc = Math.max(fimTrabalho, fimCafe, fimEstar) + 3;
+    const H = Hc + BANDA;
 
     // paredes: fundo, laterais, de baixo e as duas divisórias com passagens
-    const passagens = [[46, 70], [H - 27, H - 5]];
+    const passagens = [[46, 70], [Hc - 27, Hc - 5]];
     obst.push([0, 0, W, Y_PISO], [0, 0, 2, H], [W - 2, 0, 2, H], [0, H - 3, W, 3]);
     [X.div1, X.div2].forEach(([x0, x1]) => {
       let y = Y_PISO;
@@ -323,12 +339,30 @@
         obst.push([x0, y, x1 - x0, p0 - y]);
         y = p1;
       });
-      obst.push([x0, y, x1 - x0, H - y]);
+      obst.push([x0, y, x1 - x0, Hc - 3 - y]);
     });
-    obst.push([4, H - 15, 8, 11]); // planta no canto do trabalho
+    obst.push([4, Hc - 15, 8, 11]); // planta no canto do trabalho
+
+    // parede da faixa de baixo, com a porta do café
+    obst.push([0, Hc - 3, PORTA[0], 15], [PORTA[1], Hc - 3, W - PORTA[1], 15]);
+    // divisória banheiro | lounge, com passagem
+    obst.push([X.banheiro[1], Hc + 12, 3, 18], [X.banheiro[1], Hc + 52, 3, H - 3 - (Hc + 52)]);
+    // banheiro: bancada com duas pias; o espelho de cada uma fica à esquerda
+    obst.push([10, Hc + 12, 62, 6]);
+    PIAS_X.forEach((x, i) => vagas.push({ id: `pia-${i}`, zona: 'banheiro', tipo: 'pia', x, y: Hc + 28, acesso: { x, y: Hc + 28 } }));
+    // lounge: fliperamas na parede, videogame com sofá, pingue-pongue
+    FLIPER_X.forEach((x, i) => {
+      obst.push([x - 7, Hc + 12, 14, 10]);
+      vagas.push({ id: `fliper-${i}`, zona: 'lounge', tipo: 'fliper', x, y: Hc + 31, acesso: { x, y: Hc + 31 } });
+    });
+    obst.push([196, Hc + 44, 68, 12]);
+    GAME_X.forEach((x, i) => vagas.push({ id: `game-${i}`, zona: 'lounge', tipo: 'game', x, y: Hc + 50, acesso: { x, y: Hc + 60 } }));
+    obst.push([MESA_PINGUE.x - 10, Hc + 24, 20, 20]);
+    vagas.push({ id: 'pingue-0', zona: 'lounge', tipo: 'pingue', olhar: 'baixo', x: MESA_PINGUE.x, y: Hc + 19, acesso: { x: MESA_PINGUE.x + 18, y: Hc + 19 } });
+    vagas.push({ id: 'pingue-1', zona: 'lounge', tipo: 'pingue', olhar: 'cima', x: MESA_PINGUE.x, y: Hc + 64, acesso: { x: MESA_PINGUE.x, y: Hc + 64 } });
 
     return {
-      W, H, largura: W * P, altura: H * P, linhasMesa, linhasCafe, linhasEstar,
+      W, H, Hc, largura: W * P, altura: H * P, alturaCima: Hc * P, linhasMesa, linhasCafe, linhasEstar,
       assinatura: `${W}:${linhasMesa}:${linhasCafe}:${linhasEstar}`,
       vagas, moveis, obstaculos: obst, passagens, tv,
     };
@@ -540,33 +574,123 @@
 
   const LIVROS = ['#7D36EC', '#E0409A', '#4F7BD9', '#2FA36B', '#D99A2B', '#A469FF', '#6B6B75', '#B347D0'];
 
+  /* Faixa de baixo: banheiro (azulejo, pias, espelhos) e lounge de jogos
+     (fliperamas, videogame com sofá, pingue-pongue). Arte própria. */
+  function pintarFaixa(r, plano) {
+    const { W, H, Hc } = plano;
+    const piso = Hc + 12;
+    // pisos: azulejo no banheiro, tábuas escuras no lounge
+    r(X.banheiro[0], piso, X.banheiro[1] - X.banheiro[0], H - 3 - piso, '#2A2D38');
+    for (let y = piso; y < H - 3; y += 6) r(X.banheiro[0], y, X.banheiro[1] - X.banheiro[0], 1, '#23252F');
+    for (let x = X.banheiro[0] + 5; x < X.banheiro[1]; x += 6) r(x, piso, 1, H - 3 - piso, '#23252F');
+    r(X.lounge[0], piso, W - 2 - X.lounge[0], H - 3 - piso, '#221D2B');
+    for (let y = piso + 5; y < H - 3; y += 5) r(X.lounge[0], y, W - 2 - X.lounge[0], 1, '#1C1824');
+    // tapete do videogame
+    r(198, Hc + 20, 64, 22, '#3A2D5C');
+    r(199, Hc + 21, 62, 20, '#2A2142');
+
+    // parede da faixa: topo, face, neon e rodapé, com o vão da porta
+    const parede = (x0, x1) => {
+      r(x0, Hc - 3, x1 - x0, 2, '#2E2A3B');
+      r(x0, Hc - 3, x1 - x0, 1, '#3A3550');
+      r(x0, Hc - 1, x1 - x0, 10, '#1F1C29');
+      r(x0, Hc + 9, x1 - x0, 1, '#1A1823');
+      r(x0, Hc + 10, x1 - x0, 1, '#7D36EC');
+      r(x0, Hc + 11, x1 - x0, 1, '#100F15');
+    };
+    parede(2, PORTA[0]);
+    parede(PORTA[1], W - 2);
+    r(PORTA[0], Hc - 3, PORTA[1] - PORTA[0], 15, '#221D2B');
+    r(PORTA[0] - 1, Hc - 3, 1, 15, '#3A3550');
+    r(PORTA[1], Hc - 3, 1, 15, '#3A3550');
+    // azulejos na parede do banheiro
+    r(2, Hc - 1, X.banheiro[1] - 2, 10, '#2C3242');
+    for (let x = 5; x < X.banheiro[1]; x += 6) r(x, Hc - 1, 1, 10, '#252A38');
+    r(2, Hc + 4, X.banheiro[1] - 2, 1, '#252A38');
+    // divisória banheiro | lounge
+    [[piso, Hc + 30], [Hc + 52, H - 3]].forEach(([a, b]) => {
+      r(X.banheiro[1], a, 3, b - a, '#2E2A3B');
+      r(X.banheiro[1], a, 1, b - a, '#3A3550');
+    });
+
+    // pias e espelhos (o espelho fica à esquerda de cada pia)
+    r(10, piso, 62, 6, '#0D0C12');
+    r(11, piso, 60, 4, '#C9C6D6');
+    r(11, piso, 60, 1, '#E6E3F0');
+    PIAS_X.forEach((x) => {
+      r(x - 4, piso + 1, 8, 2, '#8F8A9E');
+      r(x - 1, Hc + 8, 2, 4, '#B9B2A2');
+      r(x - 15, Hc - 2, 12, 10, '#0D0C12');
+      r(x - 14, Hc - 1, 10, 8, '#AEB6C8');
+      r(x - 13, Hc, 2, 1, '#E6E3F0');
+      r(x - 14, Hc + 6, 10, 1, '#8F98AC');
+    });
+    // toalha pendurada
+    r(73, Hc + 1, 3, 7, '#7A3B5E');
+
+    // fliperamas
+    FLIPER_X.forEach((x, i) => {
+      r(x - 7, Hc - 5, 14, 27, '#0D0C12');
+      r(x - 6, Hc - 4, 12, 25, i ? '#3A2D5C' : '#5E2C48');
+      r(x - 6, Hc - 4, 12, 2, i ? '#B347D0' : '#E0409A');
+      r(x - 5, Hc - 1, 10, 7, '#14131A');
+      r(x - 6, Hc + 8, 12, 3, '#4A4458');
+      r(x - 4, Hc + 9, 1, 1, '#E0409A');
+      r(x - 1, Hc + 9, 1, 1, '#D99A2B');
+      r(x + 2, Hc + 9, 1, 1, '#A469FF');
+    });
+
+    // videogame: TV na parede, console no chão, sofá visto por trás
+    r(TV_GAME.x - 16, Hc - 3, 32, 12, '#0D0C12');
+    r(TV_GAME.x - 15, Hc - 2, 30, 10, '#14131A');
+    r(TV_GAME.x - 8, Hc + 13, 16, 4, '#0D0C12');
+    r(TV_GAME.x - 7, Hc + 13, 14, 3, '#3A3448');
+    r(TV_GAME.x + 4, Hc + 14, 1, 1, '#A469FF');
+    r(196, Hc + 44, 68, 12, '#0D0C12');
+    r(197, Hc + 45, 66, 5, '#4C3B74');
+    r(197, Hc + 45, 66, 1, '#6A55A0');
+    r(197, Hc + 50, 66, 5, '#3B2D5C');
+    r(197, Hc + 54, 66, 1, '#2E2346');
+
+    // pingue-pongue: mesa roxa, linhas brancas e rede no meio
+    const mx = MESA_PINGUE.x;
+    r(mx - 10, Hc + 24, 20, 20, '#0D0C12');
+    r(mx - 9, Hc + 25, 18, 17, '#5B4690');
+    r(mx - 9, Hc + 25, 18, 1, '#6E5AA0');
+    r(mx - 1, Hc + 25, 1, 17, '#B9B2A2');
+    r(mx - 10, Hc + 33, 20, 2, '#E6E3F0');
+    r(mx - 9, Hc + 42, 2, 2, '#1E1B26');
+    r(mx + 7, Hc + 42, 2, 2, '#1E1B26');
+  }
+
   function pintarSala(plano) {
     const p = criarPintor();
     const r = p.r;
-    const { W, H } = plano;
+    const { W, H, Hc } = plano;
 
     // cabeçalho (o texto é vetor, por cima)
     r(0, 0, W, 16, '#111017');
     r(0, 15, W, 1, '#26232F');
 
     // pisos: tábuas no trabalho e na sala de estar, xadrez no café
-    [X.trabalho, X.estar].forEach(([x0, x1]) => {
-      r(x0, Y_PISO, x1 - x0, H - Y_PISO, '#262030');
-      for (let y = Y_PISO + 5; y < H; y += 5) r(x0, y, x1 - x0, 1, '#201A28');
-      for (let y = Y_PISO, k = 0; y < H; y += 5, k += 1) {
-        for (let x = x0 + ((k * 13) % 31); x < x1; x += 31) r(x, y + 1, 1, 4, '#201A28');
+    const tabuas = ([x0, x1], y0, y1, base, risco) => {
+      r(x0, y0, x1 - x0, y1 - y0, base);
+      for (let y = y0 + 5; y < y1; y += 5) r(x0, y, x1 - x0, 1, risco);
+      for (let y = y0, k = 0; y < y1; y += 5, k += 1) {
+        for (let x = x0 + ((k * 13) % 31); x < x1; x += 31) r(x, y + 1, 1, Math.min(4, y1 - y - 1), risco);
       }
-    });
-    r(X.cafe[0], Y_PISO, X.cafe[1] - X.cafe[0], H - Y_PISO, '#26222F');
-    for (let y = Y_PISO; y < H; y += 6) {
+    };
+    [X.trabalho, X.estar].forEach((faixa) => tabuas(faixa, Y_PISO, Hc, '#262030', '#201A28'));
+    r(X.cafe[0], Y_PISO, X.cafe[1] - X.cafe[0], Hc - Y_PISO, '#26222F');
+    for (let y = Y_PISO; y < Hc; y += 6) {
       for (let x = X.cafe[0] + (((y - Y_PISO) / 6) % 2) * 6; x < X.cafe[1]; x += 12) {
-        r(x, y, Math.min(6, X.cafe[1] - x), Math.min(6, H - y), '#2E2939');
+        r(x, y, Math.min(6, X.cafe[1] - x), Math.min(6, Hc - y), '#2E2939');
       }
     }
     // tapete da sala de estar
-    r(204, Y_PISO + 4, W - 207, H - Y_PISO - 10, '#3A2D5C');
-    r(205, Y_PISO + 5, W - 209, H - Y_PISO - 12, '#2A2142');
-    for (let y = Y_PISO + 8; y < H - 8; y += 4) {
+    r(204, Y_PISO + 4, W - 207, Hc - Y_PISO - 10, '#3A2D5C');
+    r(205, Y_PISO + 5, W - 209, Hc - Y_PISO - 12, '#2A2142');
+    for (let y = Y_PISO + 8; y < Hc - 8; y += 4) {
       for (let x = 208 + (y % 8 === 0 ? 2 : 0); x < W - 5; x += 4) r(x, y, 1, 1, '#33284F');
     }
     r(2, Y_PISO, W - 4, 1, '#0F0E14'); // sombra da parede no piso
@@ -656,7 +780,7 @@
         trecho(y, p0);
         y = p1;
       });
-      trecho(y, H - 3);
+      trecho(y, Hc - 3);
     });
 
     // paredes laterais e de baixo
@@ -666,13 +790,15 @@
     r(0, H - 3, W, 1, '#3A3550');
 
     // planta no canto do trabalho
-    r(5, H - 9, 7, 5, '#0D0C12');
-    r(6, H - 9, 5, 4, '#7A5434');
-    r(5, H - 9, 7, 1, '#8F6640');
-    r(3, H - 16, 11, 7, '#1F6B42');
-    r(4, H - 18, 9, 7, '#2F8F5B');
-    r(6, H - 20, 5, 4, '#3FAE6E');
-    r(6, H - 15, 1, 2, '#5BC888');
+    r(5, Hc - 9, 7, 5, '#0D0C12');
+    r(6, Hc - 9, 5, 4, '#7A5434');
+    r(5, Hc - 9, 7, 1, '#8F6640');
+    r(3, Hc - 16, 11, 7, '#1F6B42');
+    r(4, Hc - 18, 9, 7, '#2F8F5B');
+    r(6, Hc - 20, 5, 4, '#3FAE6E');
+    r(6, Hc - 15, 1, 2, '#5BC888');
+
+    pintarFaixa(r, plano);
 
     // TV vista por trás: gabinete, saídas de ar e pé
     const tv = plano.tv;
@@ -760,7 +886,18 @@
   /* ------------------------------------------------------ vida social */
 
   /* Quantas pessoas cada roda aceita. */
-  const LIMITES_RODA = { conversa: [2, 2], copa: [2, 4], tv: [2, 3] };
+  const LIMITES_RODA = {
+    conversa: [2, 2], copa: [2, 4], tv: [2, 3], jokenpo: [2, 2],
+    pingpong: [2, 2], videogame: [2, 2], fliperama: [2, 2], espelho: [1, 2],
+  };
+  // rodas da mesma família disputam os mesmos lugares: uma de cada por vez
+  const FAMILIA_RODA = {
+    conversa: 'cafe', copa: 'cafe', jokenpo: 'cafe', tv: 'tv',
+    pingpong: 'pingpong', videogame: 'videogame', fliperama: 'fliperama', espelho: 'espelho',
+  };
+  const JOGOS = ['pingpong', 'videogame', 'fliperama', 'jokenpo'];
+  // rodas que usam um par fixo de lugares (os dois, ou nada)
+  const PAR_RODA = { conversa: 'balcao', jokenpo: 'balcao', pingpong: 'pingue', videogame: 'game', fliperama: 'fliper' };
   const PROGRAMAS = ['futebol', 'novela', 'desenho'];
 
   /* Lugares de uma roda, só entre os livres. Usa vagas que já existem,
@@ -769,10 +906,11 @@
      depois balcões) e TV (a última fileira da sala de estar). */
   function vagasRoda(plano, tipo, ocupadas) {
     const livre = (v) => !ocupadas.has(v.id);
-    if (tipo === 'conversa') {
-      const balcoes = plano.vagas.filter((v) => v.tipo === 'balcao');
-      return balcoes.length === 2 && balcoes.every(livre) ? balcoes : [];
+    if (PAR_RODA[tipo]) {
+      const par = plano.vagas.filter((v) => v.tipo === PAR_RODA[tipo]);
+      return par.length === 2 && par.every(livre) ? par : [];
     }
+    if (tipo === 'espelho') return plano.vagas.filter((v) => v.tipo === 'pia' && livre(v));
     if (tipo === 'copa') {
       const ordem = { banqueta: 0, balcao: 1 };
       return plano.vagas
@@ -795,7 +933,7 @@
       novela: ['Vai começar a novela! 📺', 'Corre, a novela!'],
       desenho: ['Tá passando desenho! 📺', 'Bora ver desenho?'],
     },
-    fofoca: ['Viram o commit de {nome}? 👀', '{nome} não para hoje…', 'Dizem que {nome} refez tudo', 'Quem mexeu no README? 👀'],
+    fofoca: ['Viram o commit {do}? 👀', '{nome} não para hoje…', 'Dizem que {nome} refez tudo', 'Quem mexeu no README? 👀', 'Só eu acho {o} {nome} genial?'],
     piada: ['Na minha máquina funciona 😂', 'Não é bug, é feature', 'Quem nunca deu push na main?', 'Um café e um rebase, por favor'],
     trabalho: ['Deploy na sexta? 😈', 'Testes passando! ✅', 'Mais um merge conflict…', 'Bora codar!', 'Esse prompt foi longo, hein'],
     reacoes: {
@@ -808,6 +946,22 @@
     futebol: ['Vai, vai, vai!', 'Que chute! ⚽', 'Juiz ladrão! 😤', 'Passa a bola!', 'Esse goleiro…', 'Foi pênalti!', 'Na trave! 😱', 'Tira o técnico!'],
     novela: ['Não acredito! 😱', 'Ela vai descobrir…', 'Que drama! 💔', 'Eu sabia! 💕', 'Ele é o pai?! 😮', 'Que vilã! 😤', 'Vai ter casamento!'],
     desenho: ['Esse é clássico! 😄', 'Olha ele caindo!', 'Eu via isso criança', 'Lá vem a bigorna!', 'De novo esse coiote', 'Que música boa 🎵'],
+    abertura2: {
+      pingpong: 'Bora uma partida? 🏓', videogame: 'Melhor de 3? 🎮', fliperama: 'Valendo ficha! 👾',
+      espelho: 'Deixa eu me arrumar…',
+    },
+    pingue: ['Saque!', 'Que cortada! 🏓', 'Na rede…', 'Essa pegou!'],
+    game: ['Combo! 💥', 'Para de travar!', 'Ultrapassei! 🏎️', 'Agora vai!'],
+    fliper: ['Mais uma ficha!', 'Recorde! 🕹️', 'Quase!', 'Combo! 💥'],
+    provoca: ['Que lag é esse?!', 'Tá fácil, hein', 'Joga direito!', 'Essa foi sorte', 'Vem, vem!'],
+    vitoria: ['Ganhei! 🏆', 'É campeão! 🏆', 'Fácil! 😎'],
+    derrota: ['Ahh, não… 😩', 'Foi sorte!', 'Tô sem treino…'],
+    revanche: 'Revanche! 😤',
+    jokenpo: ['Jo…', 'Ken…', 'Pô!'],
+    empate: 'Empate! De novo!',
+    espelho: { solo: ['Batom… 💄', 'Penteando… 🪮', 'Que cabelo! 😎'], dupla: ['Empresta o pente?', 'Tá arrasando! ✨', 'Gostei do look!'] },
+    brilho: '✨',
+    soneca: 'Zzz… 💤',
     gol: 'GOOOL! ⚽🎉',
     contra: 'Ahhh, não! 😩',
     chamado: 'Opa, me chamaram! 🏃',
@@ -842,21 +996,134 @@
       }
       return { texto: pegar(FALAS[programa], rnd), reacao: rnd() < 0.3 ? pegar(FALAS.reacoes.tv, rnd) : null };
     }
+    const tracos = (contexto && contexto.tracos) || [];
     const sorteio = rnd();
     let assunto = sorteio < 0.3 ? 'fofoca' : sorteio < 0.55 ? 'piada' : sorteio < 0.85 ? 'trabalho' : 'dia';
+    if (tracos.includes('piadas') && rnd() < 0.4) assunto = 'piada';
+    else if (tracos.includes('fofoca') && rnd() < 0.4) assunto = 'fofoca';
     if (assunto === 'fofoca' && !nomes.length) assunto = 'trabalho';
     let texto;
     if (assunto === 'dia') texto = falaDoDia(data, rnd);
-    else texto = pegar(FALAS[assunto], rnd).replace('{nome}', () => pegar(nomes, rnd));
+    else {
+      const alvo = pegar(nomes, rnd);
+      const quem = typeof alvo === 'string' ? { nome: alvo, artigo: null } : alvo || { nome: '', artigo: null };
+      texto = pegar(FALAS[assunto], rnd)
+        .replace('{do}', () => (quem.artigo ? `d${quem.artigo} ${quem.nome}` : `de ${quem.nome}`))
+        .replace('{o}', () => quem.artigo || 'o')
+        .replace('{nome}', () => quem.nome);
+    }
     const chance = { fofoca: 0.7, piada: 0.9, trabalho: 0.5, dia: 0.6 }[assunto];
     return { texto, reacao: rnd() < chance ? pegar(FALAS.reacoes[assunto], rnd) : null };
+  }
+
+  /* Personalidade (ideia do Habblaud): cada pessoa tem nome, 2 ou 3 traços
+     e um bordão, sorteados pela semente dela — é sempre a mesma pessoa, em
+     qualquer navegador. Os traços pesam na roda que ela escolhe, em como
+     joga e no quanto aposta. */
+  const NOMES = [
+    ['Marina', 'a'], ['Henrique', 'o'], ['Luan', 'o'], ['Rafaela', 'a'], ['Bruna', 'a'], ['Iara', 'a'], ['Lia', 'a'], ['Caio', 'o'],
+    ['Thiago', 'o'], ['Juliana', 'a'], ['Beatriz', 'a'], ['Gustavo', 'o'], ['Larissa', 'a'], ['Diego', 'o'], ['Camila', 'a'], ['Rodrigo', 'o'],
+    ['Fernanda', 'a'], ['Mateus', 'o'], ['Aline', 'a'], ['Vinícius', 'o'], ['Patrícia', 'a'], ['Renato', 'o'], ['Natália', 'a'], ['Felipe', 'o'],
+    ['Carla', 'a'], ['Eduardo', 'o'], ['Tainá', 'a'], ['Otávio', 'o'], ['Yasmin', 'a'], ['Igor', 'o'], ['Débora', 'a'], ['Murilo', 'o'],
+    ['Sabrina', 'a'], ['Wesley', 'o'], ['Jéssica', 'a'], ['André', 'o'], ['Priscila', 'a'], ['Leandro', 'o'], ['Vanessa', 'a'], ['Samuel', 'o'],
+  ];
+  const TRACOS = {
+    competicao: { emoji: '🏆', rotulo: 'Competição', descricao: 'Provoca nos jogos e pede revanche quando perde' },
+    apostas: { emoji: '🎲', rotulo: 'Apostas', descricao: 'Aposta alto e chama para o jokenpô' },
+    games: { emoji: '🎮', rotulo: 'Games', descricao: 'Prefere videogame e fliperama, e joga melhor' },
+    series: { emoji: '📺', rotulo: 'Séries e TV', descricao: 'Liga a TV sempre que pode' },
+    fofoca: { emoji: '🗣️', rotulo: 'Fofoca', descricao: 'Puxa assunto sobre os colegas' },
+    vaidade: { emoji: '💄', rotulo: 'Vaidade', descricao: 'Passa no espelho sempre que pode' },
+    cafeina: { emoji: '☕', rotulo: 'Cafeína', descricao: 'Vive na copa' },
+    piadas: { emoji: '😂', rotulo: 'Piadas', descricao: 'Conta mais piadas nas rodas' },
+    esporte: { emoji: '🏓', rotulo: 'Esporte', descricao: 'Chama para o pingue-pongue, e joga melhor' },
+    timidez: { emoji: '🙈', rotulo: 'Timidez', descricao: 'Entra menos nas rodas' },
+    economia: { emoji: '💰', rotulo: 'Economia', descricao: 'Aposta pouco' },
+    sonecas: { emoji: '😴', rotulo: 'Sonecas', descricao: 'Cochila na frente da TV' },
+    calma: { emoji: '🧘', rotulo: 'Calma', descricao: 'Não provoca ninguém' },
+    leitura: { emoji: '📚', rotulo: 'Leitura', descricao: 'Prefere ficar na sua' },
+  };
+  const OPOSTOS = [['calma', 'competicao'], ['apostas', 'economia'], ['timidez', 'fofoca']];
+  const BORDOES = ['Tá pago!', 'Bora codar!', 'Partiu!', 'Confia!', 'É isso aí!', 'Sem estresse', 'Deu bom!', 'Bora que bora!', 'Que isso!', 'Simbora!'];
+
+  /* Nome, traços e bordão de uma pessoa. `usados` evita repetir o nome de
+     quem já está na tela: segue para o próximo nome livre da lista. */
+  function perfil(chave, usados) {
+    const ocupados = usados || new Set();
+    let i = hash(`nome|${chave}`) % NOMES.length;
+    for (let k = 0; k < NOMES.length && ocupados.has(NOMES[i][0]); k += 1) i = (i + 1) % NOMES.length;
+    const chaves = Object.keys(TRACOS);
+    const h = hash(`tracos|${chave}`);
+    const quantos = h % 3 === 0 ? 3 : 2;
+    const tracos = [];
+    for (let k = 0; tracos.length < quantos && k < chaves.length * 3; k += 1) {
+      const t = chaves[hash(`traco|${chave}|${k}`) % chaves.length];
+      const briga = OPOSTOS.some(([a, b]) => (t === a && tracos.includes(b)) || (t === b && tracos.includes(a)));
+      if (!tracos.includes(t) && !briga) tracos.push(t);
+    }
+    return { nome: NOMES[i][0], artigo: NOMES[i][1], tracos, bordao: BORDOES[hash(`bordao|${chave}`) % BORDOES.length] };
+  }
+
+  /* Amizade ou rivalidade de um par: simétrica e sempre a mesma. */
+  function relacao(a, b) {
+    if (a === b) return null;
+    const [x, y] = [a, b].sort();
+    const v = hash(`rel|${x}|${y}`) % 12;
+    if (v < 2) return 'rival';
+    if (v < 5) return 'amigo';
+    return null;
+  }
+
+  /* Quanto a pessoa joga bem cada jogo (o jokenpô é sorte pura). */
+  function habilidade(p, jogo) {
+    if (jogo === 'jokenpo') return 1;
+    let h = 1;
+    if (p.tracos.includes('games') && (jogo === 'videogame' || jogo === 'fliperama')) h += 0.7;
+    if (p.tracos.includes('esporte') && jogo === 'pingpong') h += 0.7;
+    if (p.tracos.includes('competicao')) h += 0.25;
+    return h;
+  }
+
+  /* Aposta de uma partida: o jokenpô sempre vale moedinhas; os outros jogos
+     só entre rivais ou com alguém que é de apostas. Nunca passa do saldo
+     de quem tem menos. */
+  function aposta(jogo, a, b, saldoA, saldoB, rivais) {
+    const apostador = [a, b].some((p) => p.tracos.includes('apostas'));
+    if (jogo !== 'jokenpo' && !rivais && !apostador) return 0;
+    let valor = jogo === 'jokenpo' ? 10 : 15;
+    if (apostador) valor *= 2;
+    if ([a, b].some((p) => p.tracos.includes('economia'))) valor = Math.round(valor / 2);
+    return Math.max(0, Math.min(valor, Math.floor(saldoA), Math.floor(saldoB)));
+  }
+
+  const GESTOS = { pedra: '✊', papel: '✋', tesoura: '✌️' };
+  /* 1 se `a` ganha, -1 se `b` ganha, 0 no empate. */
+  function jokenpo(a, b) {
+    if (a === b) return 0;
+    const ganha = { pedra: 'tesoura', tesoura: 'papel', papel: 'pedra' };
+    return ganha[a] === b ? 1 : -1;
+  }
+
+  const AFINIDADE = {
+    conversa: { fofoca: 1, cafeina: 0.5 }, copa: { cafeina: 1, fofoca: 0.6, piadas: 0.6 },
+    tv: { series: 1.2, sonecas: 0.6, calma: 0.4 }, videogame: { games: 1.2, competicao: 0.5 },
+    fliperama: { games: 1, competicao: 0.4 }, pingpong: { esporte: 1.2, competicao: 0.6 },
+    jokenpo: { apostas: 1.2, competicao: 0.6 }, espelho: { vaidade: 1.5 },
+  };
+  /* Peso de um tipo de roda para um grupo: base mais a afinidade média. */
+  function pesoRoda(tipo, perfis) {
+    if (!perfis.length) return 0;
+    const af = AFINIDADE[tipo] || {};
+    const soma = perfis.reduce((t, p) => t + p.tracos.reduce((u, tr) => u + (af[tr] || 0), 0), 0);
+    return 0.4 + soma / perfis.length;
   }
 
   const logica = {
     P, SW, SH, POSES, ESTILOS, CABECAS, COR_FIXA, CLASSE_VAR, PESOS, X,
     mapaPessoa, aparencia, compilar, planejarSala, criarGrade, rota, sortearZona, escolherVaga,
     prepararSalas, pintarSala, hash,
-    OCIOSOS, LIMITES_RODA, PROGRAMAS, FALAS, vagasRoda, falaRoda,
+    OCIOSOS, LIMITES_RODA, FAMILIA_RODA, JOGOS, PROGRAMAS, FALAS, vagasRoda, falaRoda,
+    NOMES, TRACOS, OPOSTOS, perfil, relacao, habilidade, aposta, GESTOS, jokenpo, pesoRoda,
     definirFocoMesa: (ligado) => { focoMesa = Boolean(ligado); },
   };
 
@@ -865,7 +1132,7 @@
   const NS = 'http://www.w3.org/2000/svg';
   const CENA = { largura: 1000, margem: 16 };
   const VELOCIDADE = 26; // pixels de arte por segundo
-  const PERMANENCIA = { mesa: [24000, 55000], cafe: [9000, 20000], estar: [14000, 36000] };
+  const PERMANENCIA = { mesa: [24000, 55000], cafe: [9000, 20000], estar: [14000, 36000], lounge: [5000, 12000], banheiro: [5000, 10000] };
   const PLACA_MAX = 99; // unidades: duas placas vizinhas nunca se encostam
   const ROTULOS = { principal: 'Claude principal', desconhecido: 'agente desconhecido' };
   const rotulo = (tipo) => ROTULOS[tipo] || tipo || '?';
@@ -911,6 +1178,7 @@
   let raf = null;
   let ultimoQuadro = 0;
   let timerAgenda = null;
+  let rodaVitrine = null;
 
   function montar(container, dados, opcoes) {
     destruir();
@@ -931,6 +1199,10 @@
     svg.addEventListener('mouseout', aoSairMouse);
     timerAgenda = setInterval(agenda, 700);
     focoMesa = Boolean(raiz.location && /[?&]foco=mesa(&|$)/.test(raiz.location.hash || ''));
+    // vitrine, opt-in: `roda=pingpong` (ou outro tipo) na URL faz a sala
+    // preferir aquela roda sempre que der, para mostrar ou gravar
+    const forcada = raiz.location && /[?&]roda=([a-z]+)(&|$)/.exec(raiz.location.hash || '');
+    rodaVitrine = forcada && LIMITES_RODA[forcada[1]] ? forcada[1] : null;
     atualizar(dados);
   }
 
@@ -957,6 +1229,23 @@
       simbolos.add(id);
       const s = svgEl('symbol', { id, viewBox: `0 0 ${SW} ${SH}` });
       compilar(mapaPessoa(pose, quadro, estilo, principal)).forEach((c) => {
+        const path = svgEl('path', { d: c.d });
+        if (c.classe) path.setAttribute('class', c.classe);
+        else path.setAttribute('fill', c.cor);
+        s.appendChild(path);
+      });
+      defs.appendChild(s);
+    }
+    return `#${id}`;
+  }
+
+  /* Só a cabeça, de frente: é o reflexo no espelho do banheiro. */
+  function rosto(estilo, principal) {
+    const id = `pp-rosto-${estilo}-${principal ? 1 : 0}`;
+    if (!simbolos.has(id)) {
+      simbolos.add(id);
+      const s = svgEl('symbol', { id, viewBox: '0 0 12 10' });
+      compilar(mapaPessoa('pe-frente', 0, estilo, principal).slice(0, 10)).forEach((c) => {
         const path = svgEl('path', { d: c.d });
         if (c.classe) path.setAttribute('class', c.classe);
         else path.setAttribute('fill', c.cor);
@@ -1065,6 +1354,9 @@
     resumo.setAttribute('data-papel', 'resumo');
     g.appendChild(resumo);
     [['Estações de trabalho', X.trabalho[0] + 16], ['Café', X.cafe[0] + 3], ['Sala de estar', X.estar[0] + 3]].forEach(([texto, x]) => {
+      g.appendChild(svgEl('text', { x: x * P, y: plano.alturaCima - 15 }, 'pp-area')).textContent = texto;
+    });
+    [['Banheiro', X.banheiro[0] + 3], ['Lounge de jogos', X.lounge[0] + 3]].forEach(([texto, x]) => {
       g.appendChild(svgEl('text', { x: x * P, y: plano.altura - 15 }, 'pp-area')).textContent = texto;
     });
 
@@ -1088,6 +1380,37 @@
     tvEl.appendChild(svgEl('rect', { x: (tv.x + 7) * P, y: (tv.y + 2) * P, width: P, height: P }, 'pp-tv-led'));
     g.appendChild(tvEl);
     sala.tvEl = tvEl;
+
+    // faixa de baixo: tela dividida do videogame, telas dos fliperamas,
+    // bolinha do pingue-pongue e o reflexo de quem está no espelho
+    const Hc = plano.Hc;
+    const gx = (TV_GAME.x - 15) * P;
+    const gy = (Hc - 2) * P;
+    const game = svgEl('g', {}, 'pp-game');
+    game.appendChild(svgEl('rect', { x: gx, y: gy, width: 30 * P, height: 10 * P }, 'pp-game-fundo'));
+    [0, 1].forEach((i) => {
+      const metade = svgEl('g', { transform: `translate(${gx + i * 15 * P},${gy})` }, `pp-game-metade m${i}`);
+      metade.appendChild(svgEl('rect', { x: 0, y: 7 * P, width: 15 * P, height: P }, 'pp-game-pista'));
+      metade.appendChild(svgEl('rect', { x: P, y: 4 * P, width: 3 * P, height: 2 * P }, 'pp-game-carro'));
+      game.appendChild(metade);
+    });
+    game.appendChild(svgEl('rect', { x: gx + 15 * P - 1, y: gy, width: 2, height: 10 * P }, 'pp-game-divisa'));
+    g.appendChild(game);
+    sala.gameEl = game;
+    sala.fliperEls = FLIPER_X.map((x, i) => {
+      const tela = svgEl('g', {}, 'pp-fliper');
+      tela.appendChild(svgEl('rect', { x: (x - 5) * P, y: (Hc - 1) * P, width: 10 * P, height: 7 * P }, 'pp-fliper-tela'));
+      tela.appendChild(svgEl('rect', { x: (x - 1) * P, y: (Hc + 3) * P, width: 2 * P, height: P }, `pp-fliper-nave n${i}`));
+      g.appendChild(tela);
+      return tela;
+    });
+    sala.bolaEl = svgEl('rect', { x: (MESA_PINGUE.x + 2) * P, y: (Hc + 26) * P, width: P, height: P }, 'pp-bola');
+    g.appendChild(sala.bolaEl);
+    sala.espelhos = PIAS_X.map((x) => {
+      const espelho = svgEl('g', { transform: `translate(${(x - 14) * P},${(Hc - 1) * P})` }, 'pp-espelho');
+      g.appendChild(espelho);
+      return espelho;
+    });
     g.appendChild(svgEl('rect', { x: 0.5, y: 0.5, width: plano.largura - 1, height: plano.altura - 1 }, 'parede pp-contorno'));
 
     // quem tinha vaga que não existe mais na planta nova procura outra
@@ -1173,6 +1496,12 @@
     if (!sala) return;
     const ap = aparencia(e);
     const familia = familiaDe(e.tipo_agente);
+    const chave = `${e.session_id || ''}|${e.agent_id || 'principal'}`;
+    const emUso = new Set();
+    entidades.forEach((outra) => {
+      if (!outra.sumindo) emUso.add(outra.perfil.nome);
+    });
+    const meuPerfil = perfil(chave, emUso);
     const el = svgEl('g', {
       'data-id': e.id,
       'data-acao': 'detalhe-execucao',
@@ -1180,6 +1509,7 @@
       role: 'button',
       style: `--pele:${ap.pele[0]};--pele-s:${ap.pele[1]};--cabelo:${ap.cabelo[0]};--cabelo-s:${ap.cabelo[1]};--camisa:${ap.camisa[0]};--camisa-s:${ap.camisa[1]};--calca:${ap.calca}`,
     }, `personagem avatar pessoa ${e.status} familia-${familia} surgindo`);
+    el.appendChild(svgEl('title')).textContent = `${meuPerfil.nome} — ${rotulo(e.tipo_agente)}`;
     el.appendChild(svgEl('rect', { x: -15, y: -3, width: 30, height: 4 }, 'pp-sombra'));
     const virar = svgEl('g', {}, 'virar');
     const q0 = svgEl('use', { x: -SW * P / 2, y: -SH * P, width: SW * P, height: SH * P }, 'pp-q0');
@@ -1217,8 +1547,11 @@
       status: e.status, tipo: e.tipo_agente, pai: e.execucao_pai_id || null,
       x: 0, y: 0, vaga: null, rota: null, pose: null, dir: 'baixo', proxima: 0, sumindo: false,
       roda: null, olhar: null, fala: null, timerFala: null,
+      chave, session_id: e.session_id, agent_id: e.agent_id || null, perfil: meuPerfil,
     };
-    el.setAttribute('aria-label', `${rotulo(e.tipo_agente)}: ${e.status}`);
+    el.setAttribute('aria-label', `${meuPerfil.nome}, ${rotulo(e.tipo_agente)}: ${e.status}`);
+    conta(ent);
+    salvarBanco();
     sala.gente.appendChild(el);
     ajustarPlaca(ent);
 
@@ -1266,9 +1599,12 @@
     const classes = ['personagem', 'avatar', 'pessoa', e.status, `familia-${familiaDe(e.tipo_agente)}`];
     if (ent.rota) classes.push('andando');
     ent.el.setAttribute('class', classes.join(' '));
-    ent.el.setAttribute('aria-label', `${rotulo(e.tipo_agente)}: ${e.status}`);
+    ent.el.setAttribute('aria-label', `${ent.perfil.nome}, ${rotulo(e.tipo_agente)}: ${e.status}`);
     ent.el.querySelector('.tempo').textContent = tempoDe(e);
     if (antes === e.status) return;
+    // moedinhas: fim de turno e subagente que entregou o resultado
+    if ((antes === 'trabalhando' || antes === 'delegando') && e.status === 'aguardando') creditar(ent, 5, 'Pedido atendido');
+    if (ent.tipo !== 'principal' && ATIVOS.includes(antes) && e.status === 'concluida') creditar(ent, 15, 'Entregou o resultado');
     if (ent.roda && !OCIOSOS.includes(e.status)) sairDaRoda(ent, FALAS.chamado);
     // mudou de estado: decide logo para onde vai. Quem encerrou ou ficou
     // órfão sai da mesa para a convivência; os outros só reconsideram.
@@ -1285,7 +1621,7 @@
 
   function permanencia(ent) {
     const zona = ent.vaga ? ent.vaga.zona : 'estar';
-    const base = PERMANENCIA[zona];
+    const base = PERMANENCIA[zona] || PERMANENCIA.estar;
     return ent.status === 'concluida' ? [base[0] * 1.6, base[1] * 1.6] : base;
   }
 
@@ -1324,6 +1660,13 @@
     } else if (ent.olhar) {
       pose = 'pe-lado';
       anim = 'anim-piscar';
+    } else if (ent.vaga && ent.vaga.tipo === 'pingue') {
+      pose = ent.vaga.olhar === 'baixo' ? 'pe-frente' : 'pe-costas';
+      anim = ent.vaga.olhar === 'baixo' ? 'anim-piscar' : '';
+    } else if (ent.vaga && (ent.vaga.tipo === 'fliper' || ent.vaga.tipo === 'pia')) {
+      pose = 'pe-costas';
+    } else if (ent.vaga && ent.vaga.tipo === 'game') {
+      pose = 'sentado-costas';
     } else if (ent.vaga && ent.vaga.tipo === 'mesa') {
       pose = digita(ent) ? 'digitar' : 'sentado-costas';
       anim = digita(ent) ? (ent.status === 'delegando' ? 'anim-digitar-lento' : 'anim-digitar') : '';
@@ -1479,7 +1822,7 @@
   function atualizarRodas(sala, agora) {
     sala.rodas.slice().forEach((roda) => {
       roda.membros = roda.membros.filter((m) => !m.sumindo && m.roda === roda);
-      if (roda.membros.length < 2) {
+      if (roda.membros.length < LIMITES_RODA[roda.tipo][0]) {
         encerrarRoda(sala, roda);
         return;
       }
@@ -1491,39 +1834,99 @@
         if (roda.reacao.ent.roda === roda) mostrarFala(roda.reacao.ent, roda.reacao.texto, 2200);
         roda.reacao = null;
       }
+      if (roda.passo) {
+        // jogos e espelho seguem um roteiro próprio; a trava evita roda eterna
+        if (agora > roda.inicio + 240000) encerrarRoda(sala, roda);
+        else if (agora >= roda.proximaFala) {
+          const espera = roda.passo(sala, roda);
+          if (espera === null) encerrarRoda(sala, roda);
+          else roda.proximaFala = agora + espera;
+        }
+        return;
+      }
       if (agora >= roda.fim) encerrarRoda(sala, roda);
       else if (agora >= roda.proximaFala) falar(sala, roda, agora);
     });
 
-    if (agora < sala.proximaRoda || sala.rodas.length >= 2 || reduzido()) return;
-    sala.proximaRoda = agora + entre([4000, 9000]);
+    if (agora < sala.proximaRoda || sala.rodas.length >= RODAS_POR_SALA || reduzido()) return;
+    sala.proximaRoda = agora + entre([3000, 7000]);
     const atoa = [];
     entidades.forEach((ent) => {
       if (ent.sala === sala.chave && !ent.sumindo && !ent.roda && !ent.rota && OCIOSOS.includes(ent.status)) atoa.push(ent);
     });
-    if (atoa.length < 2 || Math.random() < 0.35) return;
-    // uma roda de café por vez (balcão e copa dividem os lugares) e uma TV
-    const tipos = embaralhar(Object.keys(LIMITES_RODA)).filter((tipo) => !sala.rodas.some((r) => (r.tipo === 'tv') === (tipo === 'tv')));
-    for (const tipo of tipos) {
+    // quem é tímido muitas vezes fica de fora
+    const dispostos = atoa.filter((ent) => !ent.perfil.tracos.includes('timidez') || Math.random() < 0.4);
+    if (!dispostos.length || Math.random() < 0.3) return;
+    const familias = new Set(sala.rodas.map((r) => FAMILIA_RODA[r.tipo]));
+    const vaidosos = dispostos.some((ent) => ent.perfil.tracos.includes('vaidade'));
+    const possiveis = Object.keys(LIMITES_RODA).filter((tipo) => {
+      if (familias.has(FAMILIA_RODA[tipo]) || dispostos.length < LIMITES_RODA[tipo][0]) return false;
+      if (tipo === 'espelho' && dispostos.length < 2 && !vaidosos) return false;
+      return vagasRoda(sala.plano, tipo, ocupadasExceto(sala, dispostos)).length >= LIMITES_RODA[tipo][0];
+    });
+    const perfis = dispostos.map((ent) => ent.perfil);
+    const ordem = [];
+    let resto = possiveis.slice();
+    while (resto.length) {
+      const tipo = sortearPeso(resto, (t) => pesoRoda(t, perfis));
+      ordem.push(tipo);
+      resto = resto.filter((t) => t !== tipo);
+    }
+    if (rodaVitrine && ordem.includes(rodaVitrine)) ordem.unshift(...ordem.splice(ordem.indexOf(rodaVitrine), 1));
+    for (const tipo of ordem) {
       const [min, max] = LIMITES_RODA[tipo];
-      const membros = embaralhar(atoa).slice(0, max);
-      const ocupadasPorOutros = () => {
-        const set = new Set();
-        entidades.forEach((ent) => {
-          if (ent.sala === sala.chave && ent.vaga && !ent.sumindo && !membros.includes(ent)) set.add(ent.vaga.id);
-        });
-        return set;
-      };
-      let vagas = vagasRoda(sala.plano, tipo, ocupadasPorOutros());
+      const membros = escolherMembros(tipo, dispostos, tipo === 'espelho' && Math.random() < 0.5 ? 1 : max);
+      let vagas = vagasRoda(sala.plano, tipo, ocupadasExceto(sala, membros));
       if (vagas.length < membros.length) {
         membros.length = Math.max(0, vagas.length);
-        vagas = vagasRoda(sala.plano, tipo, ocupadasPorOutros());
+        vagas = vagasRoda(sala.plano, tipo, ocupadasExceto(sala, membros));
       }
       if (membros.length < min || vagas.length < membros.length) continue;
       iniciarRoda(sala, tipo, membros, vagas.slice(0, membros.length), agora);
-      sala.proximaRoda = agora + entre([15000, 35000]);
+      sala.proximaRoda = agora + entre([10000, 25000]);
       return;
     }
+  }
+
+  const RODAS_POR_SALA = 3;
+
+  function ocupadasExceto(sala, lista) {
+    const set = new Set();
+    entidades.forEach((ent) => {
+      if (ent.sala === sala.chave && ent.vaga && !ent.sumindo && !lista.includes(ent)) set.add(ent.vaga.id);
+    });
+    return set;
+  }
+
+  function sortearPeso(lista, peso) {
+    const pesos = lista.map((item) => Math.max(0.01, peso(item)));
+    let s = Math.random() * pesos.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < lista.length; i += 1) {
+      s -= pesos[i];
+      if (s <= 0) return lista[i];
+    }
+    return lista[lista.length - 1];
+  }
+
+  /* Quem entra: o primeiro pela afinidade com a roda; os outros pela
+     afinidade e pela relação com ele (amigos se procuram; nos jogos, rivais
+     se desafiam). */
+  function escolherMembros(tipo, gente, max) {
+    const af = AFINIDADE[tipo] || {};
+    const gosto = (ent) => 0.5 + ent.perfil.tracos.reduce((t, tr) => t + (af[tr] || 0), 0);
+    const primeiro = sortearPeso(gente, gosto);
+    const membros = [primeiro];
+    let resto = gente.filter((ent) => ent !== primeiro);
+    while (membros.length < max && resto.length) {
+      const prox = sortearPeso(resto, (ent) => {
+        const rel = relacao(primeiro.chave, ent.chave);
+        const bonus = rel === 'rival' ? (JOGOS.includes(tipo) ? 3 : 0.3) : rel === 'amigo' ? 2 : 1;
+        return gosto(ent) * bonus;
+      });
+      membros.push(prox);
+      resto = resto.filter((ent) => ent !== prox);
+    }
+    return membros;
   }
 
   function iniciarRoda(sala, tipo, membros, vagas, agora) {
@@ -1534,7 +1937,7 @@
     sala.rodas.push(roda);
     membros.forEach((ent, i) => {
       ent.roda = roda;
-      ent.olhar = tipo === 'conversa' ? (vagas[i].x < vagas[1 - i].x ? 'dir' : 'esq') : null;
+      ent.olhar = PAR_RODA[tipo] === 'balcao' ? (vagas[i].x < vagas[1 - i].x ? 'dir' : 'esq') : null;
       if (ent.vaga && ent.vaga.id === vagas[i].id && !ent.rota) atualizarPose(ent);
       else irPara(ent, sala, vagas[i]);
     });
@@ -1542,6 +1945,22 @@
 
   function comecarConversa(sala, roda, agora) {
     roda.fase = 'rolando';
+    if (ROTEIROS[roda.tipo]) {
+      roda.passo = ROTEIROS[roda.tipo];
+      roda.etapa = 0;
+      roda.placar = [0, 0];
+      roda.revanches = 0;
+      ligarEquipamento(sala, roda, true);
+      const abertura = FALAS.abertura2[roda.tipo];
+      if (abertura) mostrarFala(roda.membros[0], abertura, 2200);
+      if (JOGOS.includes(roda.tipo)) {
+        const [a, b] = roda.membros;
+        roda.aposta = aposta(roda.tipo, a.perfil, b.perfil, conta(a).moedas, conta(b).moedas, relacao(a.chave, b.chave) === 'rival');
+        if (roda.aposta) roda.reacao = { ent: b, texto: `Valendo 🪙${roda.aposta}!`, quando: agora + 2500 };
+      }
+      roda.proximaFala = agora + (roda.aposta ? 5000 : abertura ? 2700 : 800);
+      return;
+    }
     roda.fim = agora + (roda.tipo === 'tv' ? entre([30000, 50000]) : entre([20000, 32000]));
     const abertura = FALAS.abertura[roda.programa || roda.tipo];
     const quem = escolher(roda.membros);
@@ -1559,12 +1978,20 @@
     }
     const outros = prontos.filter((m) => m !== roda.falou);
     const quem = escolher(outros.length ? outros : prontos);
+    const extra = roda.tipo === 'tv' && quem.perfil.tracos.includes('sonecas') && Math.random() < 0.35 ? FALAS.soneca
+      : roda.tipo !== 'tv' && Math.random() < 0.12 ? quem.perfil.bordao : null;
+    if (extra) {
+      mostrarFala(quem, extra, 2600);
+      roda.falou = quem;
+      roda.proximaFala = agora + entre([3200, 4200]);
+      return;
+    }
     const nomes = [];
     entidades.forEach((ent) => {
-      if (ent.sala === sala.chave && ent !== quem && !ent.sumindo) nomes.push(curto(rotulo(ent.tipo)));
+      if (ent.sala === sala.chave && ent !== quem && !ent.sumindo) nomes.push({ nome: ent.perfil.nome, artigo: ent.perfil.artigo });
     });
     // evita repetir as falas mais recentes da mesma roda
-    const contexto = { nomes: [...new Set(nomes)], data: new Date(), programa: roda.programa };
+    const contexto = { nomes, data: new Date(), programa: roda.programa, tracos: quem.perfil.tracos };
     let fala = falaRoda(roda.tipo, contexto, Math.random);
     for (let tentativa = 0; tentativa < 4 && !fala.evento && roda.recentes.includes(fala.texto); tentativa += 1) {
       fala = falaRoda(roda.tipo, contexto, Math.random);
@@ -1598,6 +2025,256 @@
       atualizarPose(ent);
     });
     if (roda.tipo === 'tv' && sala.tvEl) sala.tvEl.setAttribute('class', 'pp-tv');
+    ligarEquipamento(sala, roda, false);
+  }
+
+  /* ---------------------------------------------- jogos, espelho, moedinhas */
+
+  function ligarEquipamento(sala, roda, ligado) {
+    if (roda.tipo === 'pingpong' && sala.bolaEl) sala.bolaEl.classList.toggle('jogando', ligado);
+    if (roda.tipo === 'videogame' && sala.gameEl) {
+      sala.gameEl.classList.toggle('jogando', ligado);
+      if (ligado) sala.gameEl.classList.toggle('luta', Math.random() < 0.5);
+    }
+    if (roda.tipo === 'fliperama') (sala.fliperEls || []).forEach((tela) => tela.classList.toggle('jogando', ligado));
+    if (roda.tipo === 'espelho') {
+      (sala.espelhos || []).forEach((espelho) => {
+        espelho.innerHTML = '';
+      });
+      if (!ligado) return;
+      roda.membros.forEach((ent) => {
+        const i = ent.vaga && ent.vaga.tipo === 'pia' ? Number(ent.vaga.id.split('-')[1]) : -1;
+        const espelho = sala.espelhos && sala.espelhos[i];
+        if (!espelho) return;
+        const reflexo = svgEl('use', { href: rosto(ent.ap.estilo, ent.ap.principal), x: 0.2 * P, y: 0, width: 9.6 * P, height: 8 * P }, 'pp-reflexo');
+        reflexo.setAttribute('style', ent.el.getAttribute('style') || '');
+        espelho.appendChild(reflexo);
+      });
+    }
+  }
+
+  const falarTodos = (roda, texto, ms) => roda.membros.forEach((m) => mostrarFala(m, texto, ms));
+  const provoca = (ent) => !ent.perfil.tracos.includes('calma');
+  const NOME_JOGO = { pingpong: 'pingue-pongue', videogame: 'videogame', fliperama: 'fliperama', jokenpo: 'jokenpô' };
+
+  function vencedorPorHabilidade(roda) {
+    const [a, b] = roda.membros;
+    const ha = habilidade(a.perfil, roda.tipo);
+    const hb = habilidade(b.perfil, roda.tipo);
+    return Math.random() < ha / (ha + hb) ? 0 : 1;
+  }
+
+  /* Fim de partida: comemora, lamenta, paga a aposta, conta no placar e,
+     se quem perdeu é competitivo, às vezes pede revanche. */
+  function fimDeJogo(roda, vencedor, textos) {
+    const perdedor = roda.membros.find((m) => m !== vencedor);
+    mostrarFala(vencedor, (textos && textos[0]) || escolher(FALAS.vitoria), 2600);
+    if (perdedor) mostrarFala(perdedor, (textos && textos[1]) || escolher(FALAS.derrota), 2600);
+    conta(vencedor).vitorias += 1;
+    if (perdedor) conta(perdedor).derrotas += 1;
+    const jogo = NOME_JOGO[roda.tipo];
+    if (roda.aposta && perdedor) {
+      creditar(vencedor, roda.aposta, `Ganhou no ${jogo} de ${perdedor.perfil.nome}`);
+      creditar(perdedor, -roda.aposta, `Perdeu no ${jogo} para ${vencedor.perfil.nome}`);
+    }
+    salvarBanco();
+    if (perdedor && perdedor.perfil.tracos.includes('competicao') && roda.revanches < 1 && Math.random() < 0.7) {
+      roda.revanches += 1;
+      roda.pedirRevanche = perdedor;
+    } else {
+      roda.acabou = true;
+    }
+  }
+
+  function revanche(roda) {
+    mostrarFala(roda.pedirRevanche, FALAS.revanche, 2200);
+    roda.pedirRevanche = null;
+    roda.placar = [0, 0];
+    roda.etapa = 0;
+    roda.empates = 0;
+    return 2800;
+  }
+
+  /* Cada roteiro devolve quanto esperar até o próximo passo, ou null no fim. */
+  const ROTEIROS = {
+    pingpong(sala, roda) {
+      if (roda.acabou) return null;
+      if (roda.pedirRevanche) return revanche(roda);
+      const i = vencedorPorHabilidade(roda);
+      roda.placar[i] += 1;
+      const quem = roda.membros[i];
+      const outro = roda.membros[1 - i];
+      if (roda.placar[i] >= 5) {
+        fimDeJogo(roda, quem);
+        return 3200;
+      }
+      mostrarFala(quem, `${roda.placar[0]} × ${roda.placar[1]} 🏓`, 1800);
+      if (Math.random() < 0.35) {
+        const rivais = relacao(quem.chave, outro.chave) === 'rival';
+        roda.reacao = { ent: outro, texto: rivais && provoca(outro) ? escolher(FALAS.provoca) : escolher(FALAS.pingue), quando: performance.now() + 1900 };
+      }
+      return entre([2600, 3400]);
+    },
+    videogame(sala, roda) {
+      if (roda.acabou) return null;
+      if (roda.pedirRevanche) return revanche(roda);
+      roda.etapa += 1;
+      if (roda.etapa % 3 !== 0) {
+        const quem = escolher(roda.membros);
+        const outro = roda.membros.find((m) => m !== quem);
+        const rivais = relacao(quem.chave, outro.chave) === 'rival';
+        mostrarFala(quem, rivais && provoca(quem) && Math.random() < 0.6 ? escolher(FALAS.provoca) : escolher(FALAS.game), 2200);
+        return entre([2600, 3400]);
+      }
+      const i = vencedorPorHabilidade(roda);
+      roda.placar[i] += 1;
+      if (roda.placar[i] >= 2) {
+        fimDeJogo(roda, roda.membros[i]);
+        return 3200;
+      }
+      mostrarFala(roda.membros[i], `${roda.placar[0]} × ${roda.placar[1]} 🎮`, 2000);
+      return 3000;
+    },
+    fliperama(sala, roda) {
+      if (roda.acabou) return null;
+      if (roda.pedirRevanche) return revanche(roda);
+      roda.etapa += 1;
+      if (roda.etapa < 4) {
+        mostrarFala(escolher(roda.membros), escolher(FALAS.fliper), 2200);
+        return entre([2600, 3400]);
+      }
+      fimDeJogo(roda, roda.membros[vencedorPorHabilidade(roda)], ['Ganhei! 👾', 'Game over… 💀']);
+      return 3200;
+    },
+    jokenpo(sala, roda) {
+      if (roda.acabou) return null;
+      if (roda.pedirRevanche) return revanche(roda);
+      const [a, b] = roda.membros;
+      const etapa = roda.etapa;
+      roda.etapa += 1;
+      if (etapa < 3) {
+        falarTodos(roda, FALAS.jokenpo[etapa], 800);
+        return 900;
+      }
+      if (etapa === 3) {
+        roda.gestos = [escolher(Object.keys(GESTOS)), escolher(Object.keys(GESTOS))];
+        mostrarFala(a, GESTOS[roda.gestos[0]], 1600);
+        mostrarFala(b, GESTOS[roda.gestos[1]], 1600);
+        return 1800;
+      }
+      const resultado = jokenpo(roda.gestos[0], roda.gestos[1]);
+      if (resultado === 0) {
+        roda.empates = (roda.empates || 0) + 1;
+        falarTodos(roda, FALAS.empate, 1600);
+        if (roda.empates >= 3) roda.acabou = true;
+        roda.etapa = 0;
+        return 2000;
+      }
+      fimDeJogo(roda, resultado > 0 ? a : b, ['Ganhei! 🪙', 'Ahh… 😤']);
+      return 3000;
+    },
+    espelho(sala, roda) {
+      roda.etapa += 1;
+      if (roda.etapa > 3) return null;
+      if (roda.etapa === 3) {
+        falarTodos(roda, FALAS.brilho, 1600);
+        return 2200;
+      }
+      const lista = roda.membros.length > 1 ? FALAS.espelho.dupla : FALAS.espelho.solo;
+      mostrarFala(escolher(roda.membros), escolher(lista), 2400);
+      return entre([2800, 3600]);
+    },
+  };
+
+  /* Moedinhas fictícias, só para dar graça às apostas. Ficam salvas neste
+     navegador e são esquecidas três dias depois de a pessoa sumir. */
+  const CHAVE_BANCO = 'ai-operations-room:vida-social';
+  const TRES_DIAS = 3 * 24 * 3600 * 1000;
+  let banco = null;
+  let timerBanco = null;
+
+  function carregarBanco() {
+    if (banco) return banco;
+    banco = {};
+    try {
+      const bruto = raiz.localStorage && raiz.localStorage.getItem(CHAVE_BANCO);
+      if (bruto) banco = JSON.parse(bruto) || {};
+    } catch (erro) {
+      banco = {};
+    }
+    const limite = Date.now() - TRES_DIAS;
+    Object.keys(banco).forEach((k) => {
+      if (!banco[k] || !(banco[k].visto >= limite)) delete banco[k];
+    });
+    return banco;
+  }
+
+  function salvarBanco() {
+    clearTimeout(timerBanco);
+    timerBanco = setTimeout(() => {
+      try {
+        raiz.localStorage.setItem(CHAVE_BANCO, JSON.stringify(banco || {}));
+      } catch (erro) {
+        // sem armazenamento: a carteira vale só enquanto a aba estiver aberta
+      }
+    }, 800);
+  }
+
+  function conta(ent) {
+    const b = carregarBanco();
+    if (!b[ent.chave]) b[ent.chave] = { moedas: ent.tipo === 'principal' ? 100 : 30, vitorias: 0, derrotas: 0, extrato: [], visto: Date.now() };
+    b[ent.chave].visto = Date.now();
+    return b[ent.chave];
+  }
+
+  function creditar(ent, valor, motivo) {
+    if (!valor) return;
+    const c = conta(ent);
+    c.moedas = Math.max(0, c.moedas + valor);
+    c.extrato = [{ valor, motivo, t: Date.now() }, ...c.extrato].slice(0, 8);
+    mostrarMoeda(ent, valor);
+    salvarBanco();
+  }
+
+  function mostrarMoeda(ent, valor) {
+    if (!ent.el || ent.sumindo) return;
+    const texto = svgEl('text', { x: 20, y: -66 }, `pp-moeda ${valor > 0 ? 'ganho' : 'perda'}`);
+    texto.textContent = `${valor > 0 ? '+' : '−'}🪙${Math.abs(valor)}`;
+    ent.el.appendChild(texto);
+    setTimeout(() => texto.remove(), 1700);
+  }
+
+  function descreverRoda(roda, ent) {
+    const outros = roda.membros.filter((m) => m !== ent).map((m) => m.perfil.nome);
+    const com = outros.length ? ` com ${outros.join(' e ')}` : '';
+    return {
+      conversa: `Papo no balcão${com}`, copa: `Papo na copa${com}`, tv: `Vendo ${roda.programa} na TV${com}`,
+      pingpong: `Jogando pingue-pongue${com}`, videogame: `No videogame${com}`, fliperama: `No fliperama${com}`,
+      jokenpo: `Jokenpô valendo moedinhas${com}`, espelho: 'Se arrumando no espelho',
+    }[roda.tipo] || '';
+  }
+
+  /* Vida social das pessoas de uma sessão, para a janela de detalhes. */
+  function social(sessionId) {
+    const lista = [];
+    const vivos = [];
+    entidades.forEach((ent) => {
+      if (!ent.sumindo) vivos.push(ent);
+    });
+    vivos.forEach((ent) => {
+      if (String(ent.session_id) !== String(sessionId)) return;
+      const c = conta(ent);
+      const outros = vivos.filter((o) => o !== ent);
+      lista.push({
+        tipo: rotulo(ent.tipo), nome: ent.perfil.nome, bordao: ent.perfil.bordao,
+        tracos: ent.perfil.tracos.map((t) => ({ chave: t, ...TRACOS[t] })),
+        moedas: c.moedas, vitorias: c.vitorias, derrotas: c.derrotas, extrato: c.extrato.slice(0, 3),
+        atividade: ent.roda ? descreverRoda(ent.roda, ent) : '',
+        amigos: outros.filter((o) => relacao(ent.chave, o.chave) === 'amigo').map((o) => o.perfil.nome),
+        rivais: outros.filter((o) => relacao(ent.chave, o.chave) === 'rival').map((o) => o.perfil.nome),
+      });
+    });
+    return lista;
   }
 
   /* Alguém sai antes do fim (foi chamado ou sumiu); a roda segue se ainda
@@ -1733,6 +2410,6 @@
 
   /* ------------------------------------------------------------ exportar */
 
-  raiz.EscritorioPixel = { montar, atualizar, destruir, montado, logica, _estado: { salas, entidades } };
+  raiz.EscritorioPixel = { montar, atualizar, destruir, montado, logica, social, _estado: { salas, entidades } };
   if (typeof module !== 'undefined' && module.exports) module.exports = logica;
 })(typeof window !== 'undefined' ? window : globalThis);
