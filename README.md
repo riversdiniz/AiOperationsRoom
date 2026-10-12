@@ -50,6 +50,16 @@ Abra `http://127.0.0.1:8765` e interrompa o processo quando terminar. Para apena
 
 Use `--port 8876` em qualquer comando de servidor quando a porta padrão já estiver ocupada.
 
+## Vida social
+
+Quando dois ou mais agentes da mesma sala estão à toa (aguardando ou encerrados), de vez em quando eles se juntam numa roda e conversam por balões:
+
+- **Papo no balcão:** dois em pé no balcão do café, um de frente para o outro.
+- **Papo na copa:** de dois a quatro nas banquetas e no balcão, com fofoca usando o nome dos colegas, piadas, assuntos de trabalho e do dia e da hora.
+- **TV:** de dois a três na última fileira da sala de estar assistindo futebol, novela ou desenho. A luz da tela ilumina quem assiste e, no futebol, pisca no gol.
+
+As rodas são só encenação: o estado de cada agente continua no losango e na placa. Quando alguém da roda volta a trabalhar, ele avisa ("Opa, me chamaram!") e sai. Com movimento reduzido ativado no sistema, nenhuma roda nova começa.
+
 ## Hooks do Claude Code
 
 O registro altera `~/.claude/settings.json`: adiciona um command hook para `SessionStart`, `UserPromptSubmit`, `Stop`, `SubagentStart`, `SubagentStop` e `SessionEnd`. Antes de alterar o arquivo, revise seu conteúdo.
@@ -91,6 +101,8 @@ Consulte [ARCHITECTURE.md](ARCHITECTURE.md), [DEVELOPMENT.md](DEVELOPMENT.md) e 
 ## Inspiração visual
 
 A sala pixel foi inspirada pelo [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents), da equipe Pixel Agents. Os personagens e móveis foram criados para este projeto; nenhum asset do Pixel Agents é usado.
+
+A vida social foi inspirada pelo [Habblaud](https://github.com/marmottajr/habblaud) (MIT), de Márcio Junior. A ideia foi reimplementada aqui com código e arte próprios; nenhum arquivo do Habblaud é usado.
 
 ## Licença
 

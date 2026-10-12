@@ -25,6 +25,13 @@
    hooks não entregam isso (docs/AGENTES_HOOKS.md). Digitar = trabalhando
    ou delegando, e só.
 
+   Vida social (ideia do Habblaud, MIT, reimplementada aqui com arte e
+   código próprios): dois ou mais à toa (aguardando ou encerrados) às vezes
+   se juntam numa roda — papo no balcão, papo na copa ou TV na última
+   fileira da sala de estar — e conversam por balões. É encenação: não
+   muda estado nenhum. Quem é chamado (volta a trabalhar) avisa e sai da
+   roda. Com movimento reduzido, não há rodas novas.
+
    Arte original, desenhada em código. Nenhum sprite vem do Pixel Agents nem
    de pacote de terceiros (lá o código é MIT, mas móveis e pisos não têm
    licença declarada: issue #355 do repositório deles). Cada sprite é um
@@ -44,6 +51,7 @@
   const SH = 20; // sprite: altura (âncora = pés, embaixo e no centro)
   const ATIVOS = ['trabalhando', 'aguardando', 'delegando'];
   const CONVIVENCIA = ['cafe', 'estar'];
+  const OCIOSOS = ['aguardando', 'concluida'];
 
   /* ---------------------------------------------------------- pessoas */
 
@@ -294,6 +302,13 @@
       });
     }
 
+    // TV de costas para nós, na frente da última fileira da sala de estar:
+    // quem senta ali (de frente para baixo) olha para ela. Fica entre o
+    // acesso dos assentos e a parede de baixo, longe das passagens.
+    const yUltima = 60 + (linhasEstar - 1) * 43;
+    const tv = { x: ESTAR_X[1], y: yUltima + 13, fila: linhasEstar - 1 };
+    obst.push([tv.x - 11, tv.y, 22, 8]);
+
     const fimTrabalho = 40 + (linhasMesa - 1) * 48 + 40;
     const fimCafe = 75 + (linhasCafe - 1) * 43 + 38;
     const fimEstar = 60 + (linhasEstar - 1) * 43 + 22;
@@ -315,7 +330,7 @@
     return {
       W, H, largura: W * P, altura: H * P, linhasMesa, linhasCafe, linhasEstar,
       assinatura: `${W}:${linhasMesa}:${linhasCafe}:${linhasEstar}`,
-      vagas, moveis, obstaculos: obst, passagens,
+      vagas, moveis, obstaculos: obst, passagens, tv,
     };
   }
 
@@ -659,6 +674,14 @@
     r(6, H - 20, 5, 4, '#3FAE6E');
     r(6, H - 15, 1, 2, '#5BC888');
 
+    // TV vista por trás: gabinete, saídas de ar e pé
+    const tv = plano.tv;
+    r(tv.x - 11, tv.y, 22, 8, '#0D0C12');
+    r(tv.x - 10, tv.y + 1, 20, 5, '#2E2A3B');
+    r(tv.x - 10, tv.y + 1, 20, 1, '#3A3550');
+    for (let x = tv.x - 7; x < tv.x + 7; x += 3) r(x, tv.y + 3, 2, 1, '#1E1B26');
+    r(tv.x - 6, tv.y + 6, 12, 2, '#1E1B26');
+
     // móveis
     plano.moveis.forEach((m) => {
       if (m.tipo === 'mesa') {
@@ -734,10 +757,106 @@
     return p.saida();
   }
 
+  /* ------------------------------------------------------ vida social */
+
+  /* Quantas pessoas cada roda aceita. */
+  const LIMITES_RODA = { conversa: [2, 2], copa: [2, 4], tv: [2, 3] };
+  const PROGRAMAS = ['futebol', 'novela', 'desenho'];
+
+  /* Lugares de uma roda, só entre os livres. Usa vagas que já existem,
+     então as placas continuam sem se encostar: papo no balcão (os dois
+     balcões, um de frente para o outro), papo na copa (banquetas primeiro,
+     depois balcões) e TV (a última fileira da sala de estar). */
+  function vagasRoda(plano, tipo, ocupadas) {
+    const livre = (v) => !ocupadas.has(v.id);
+    if (tipo === 'conversa') {
+      const balcoes = plano.vagas.filter((v) => v.tipo === 'balcao');
+      return balcoes.length === 2 && balcoes.every(livre) ? balcoes : [];
+    }
+    if (tipo === 'copa') {
+      const ordem = { banqueta: 0, balcao: 1 };
+      return plano.vagas
+        .filter((v) => ordem[v.tipo] !== undefined && livre(v))
+        .sort((a, b) => ordem[a.tipo] - ordem[b.tipo])
+        .slice(0, LIMITES_RODA.copa[1]);
+    }
+    if (tipo === 'tv') {
+      const fila = new Set([0, 1, 2].map((i) => `estar-${plano.tv.fila * 3 + i}`));
+      return plano.vagas.filter((v) => fila.has(v.id) && livre(v));
+    }
+    return [];
+  }
+
+  const FALAS = {
+    abertura: {
+      conversa: ['E aí, tudo certo?', 'Opa! Café?', 'Fala! Como tá aí?'],
+      copa: ['Bora um café? ☕', 'Pausa pro café!', 'Senta aí, rapidinho'],
+      futebol: ['Bora ver o jogo? ⚽', 'Começou o jogo!'],
+      novela: ['Vai começar a novela! 📺', 'Corre, a novela!'],
+      desenho: ['Tá passando desenho! 📺', 'Bora ver desenho?'],
+    },
+    fofoca: ['Viram o commit de {nome}? 👀', '{nome} não para hoje…', 'Dizem que {nome} refez tudo', 'Quem mexeu no README? 👀'],
+    piada: ['Na minha máquina funciona 😂', 'Não é bug, é feature', 'Quem nunca deu push na main?', 'Um café e um rebase, por favor'],
+    trabalho: ['Deploy na sexta? 😈', 'Testes passando! ✅', 'Mais um merge conflict…', 'Bora codar!', 'Esse prompt foi longo, hein'],
+    reacoes: {
+      fofoca: ['Sério?! 👀', 'Não acredito!', 'Conta mais!'],
+      piada: ['Hahaha 😂', 'Kkkkk', 'Essa foi boa!'],
+      trabalho: ['Nem me fala…', 'Verdade!', 'Tá pago!'],
+      dia: ['Verdade!', '🙌', 'Nem me fala…'],
+      tv: ['Hahaha 😂', 'Verdade!', '😮'],
+    },
+    futebol: ['Vai, vai, vai!', 'Que chute! ⚽', 'Juiz ladrão! 😤', 'Passa a bola!', 'Esse goleiro…', 'Foi pênalti!', 'Na trave! 😱', 'Tira o técnico!'],
+    novela: ['Não acredito! 😱', 'Ela vai descobrir…', 'Que drama! 💔', 'Eu sabia! 💕', 'Ele é o pai?! 😮', 'Que vilã! 😤', 'Vai ter casamento!'],
+    desenho: ['Esse é clássico! 😄', 'Olha ele caindo!', 'Eu via isso criança', 'Lá vem a bigorna!', 'De novo esse coiote', 'Que música boa 🎵'],
+    gol: 'GOOOL! ⚽🎉',
+    contra: 'Ahhh, não! 😩',
+    chamado: 'Opa, me chamaram! 🏃',
+  };
+
+  const pegar = (lista, rnd) => lista[Math.floor(rnd() * lista.length) % lista.length];
+
+  /* Assunto do dia e da hora, pela data local. */
+  function falaDoDia(data, rnd) {
+    const dia = data.getDay();
+    const hora = data.getHours();
+    const opcoes = [];
+    if (dia === 5) opcoes.push('Sextou! 🎉');
+    if (dia === 1) opcoes.push('Segunda-feira… 😩');
+    if (hora < 12) opcoes.push('Bom dia! ☕');
+    if (hora >= 11 && hora < 14) opcoes.push('Que fome… 🍕');
+    if (hora >= 19) opcoes.push('Hora extra, hein? 🌙');
+    if (!opcoes.length) opcoes.push('Mais um café? ☕');
+    return pegar(opcoes, rnd);
+  }
+
+  /* Uma fala de roda. Devolve { texto, reacao } ou, no futebol, às vezes
+     { texto, evento: 'gol' | 'contra' } (todos gritam junto). `nomes` são
+     os rótulos de outras pessoas da sala, para a fofoca. */
+  function falaRoda(tipo, contexto, rnd) {
+    const nomes = (contexto && contexto.nomes) || [];
+    const data = (contexto && contexto.data) || new Date();
+    if (tipo === 'tv') {
+      const programa = PROGRAMAS.includes(contexto && contexto.programa) ? contexto.programa : 'futebol';
+      if (programa === 'futebol' && rnd() < 0.22) {
+        return rnd() < 0.7 ? { texto: FALAS.gol, evento: 'gol' } : { texto: FALAS.contra, evento: 'contra' };
+      }
+      return { texto: pegar(FALAS[programa], rnd), reacao: rnd() < 0.3 ? pegar(FALAS.reacoes.tv, rnd) : null };
+    }
+    const sorteio = rnd();
+    let assunto = sorteio < 0.3 ? 'fofoca' : sorteio < 0.55 ? 'piada' : sorteio < 0.85 ? 'trabalho' : 'dia';
+    if (assunto === 'fofoca' && !nomes.length) assunto = 'trabalho';
+    let texto;
+    if (assunto === 'dia') texto = falaDoDia(data, rnd);
+    else texto = pegar(FALAS[assunto], rnd).replace('{nome}', () => pegar(nomes, rnd));
+    const chance = { fofoca: 0.7, piada: 0.9, trabalho: 0.5, dia: 0.6 }[assunto];
+    return { texto, reacao: rnd() < chance ? pegar(FALAS.reacoes[assunto], rnd) : null };
+  }
+
   const logica = {
     P, SW, SH, POSES, ESTILOS, CABECAS, COR_FIXA, CLASSE_VAR, PESOS, X,
     mapaPessoa, aparencia, compilar, planejarSala, criarGrade, rota, sortearZona, escolherVaga,
     prepararSalas, pintarSala, hash,
+    OCIOSOS, LIMITES_RODA, PROGRAMAS, FALAS, vagasRoda, falaRoda,
     definirFocoMesa: (ligado) => { focoMesa = Boolean(ligado); },
   };
 
@@ -915,13 +1034,18 @@
     el.appendChild(estatico);
     el.appendChild(gente);
     camadaSalas.appendChild(el);
-    const sala = { chave: info.chave, el, estatico, gente, plano, grade: null, x: pos.x, y: pos.y, dados: info, telas: new Map() };
+    const sala = {
+      chave: info.chave, el, estatico, gente, plano, grade: null, x: pos.x, y: pos.y, dados: info, telas: new Map(),
+      rodas: [], proximaRoda: performance.now() + entre([5000, 12000]), tvEl: null,
+    };
     redesenharSala(sala, plano);
     setTimeout(() => el.classList.remove('nascendo'), 40);
     return sala;
   }
 
   function redesenharSala(sala, plano) {
+    // a planta mudou: lugares e a TV podem ter mudado de posição
+    (sala.rodas || []).slice().forEach((roda) => encerrarRoda(sala, roda));
     sala.plano = plano;
     sala.grade = criarGrade(plano);
     const g = sala.estatico;
@@ -955,6 +1079,15 @@
       g.appendChild(tela);
       sala.telas.set(m.id, tela);
     });
+    // luz da TV: sai da tela (virada para o sofá) e ilumina quem assiste
+    const tv = plano.tv;
+    const tvEl = svgEl('g', {}, 'pp-tv');
+    tvEl.appendChild(svgEl('path', {
+      d: `M${(tv.x - 9) * P} ${tv.y * P} L${(tv.x + 9) * P} ${tv.y * P} L${(tv.x + 30) * P} ${(tv.y - 24) * P} L${(tv.x - 30) * P} ${(tv.y - 24) * P} Z`,
+    }, 'pp-tv-luz'));
+    tvEl.appendChild(svgEl('rect', { x: (tv.x + 7) * P, y: (tv.y + 2) * P, width: P, height: P }, 'pp-tv-led'));
+    g.appendChild(tvEl);
+    sala.tvEl = tvEl;
     g.appendChild(svgEl('rect', { x: 0.5, y: 0.5, width: plano.largura - 1, height: plano.altura - 1 }, 'parede pp-contorno'));
 
     // quem tinha vaga que não existe mais na planta nova procura outra
@@ -1083,6 +1216,7 @@
       id: e.id, sala: chaveSala, el, virar, q0, q1, ap,
       status: e.status, tipo: e.tipo_agente, pai: e.execucao_pai_id || null,
       x: 0, y: 0, vaga: null, rota: null, pose: null, dir: 'baixo', proxima: 0, sumindo: false,
+      roda: null, olhar: null, fala: null, timerFala: null,
     };
     el.setAttribute('aria-label', `${rotulo(e.tipo_agente)}: ${e.status}`);
     sala.gente.appendChild(el);
@@ -1135,6 +1269,7 @@
     ent.el.setAttribute('aria-label', `${rotulo(e.tipo_agente)}: ${e.status}`);
     ent.el.querySelector('.tempo').textContent = tempoDe(e);
     if (antes === e.status) return;
+    if (ent.roda && !OCIOSOS.includes(e.status)) sairDaRoda(ent, FALAS.chamado);
     // mudou de estado: decide logo para onde vai. Quem encerrou ou ficou
     // órfão sai da mesa para a convivência; os outros só reconsideram.
     const naConvivencia = ent.vaga && CONVIVENCIA.includes(ent.vaga.zona);
@@ -1155,6 +1290,7 @@
   }
 
   function sumir(ent) {
+    if (ent.roda) sairDaRoda(ent, null);
     ent.sumindo = true;
     ent.rota = null;
     ent.el.classList.add('sumindo');
@@ -1185,6 +1321,9 @@
     if (ent.rota) {
       pose = ent.dir === 'cima' ? 'andar-costas' : ent.dir === 'baixo' ? 'andar-frente' : 'andar-lado';
       anim = 'anim-andar';
+    } else if (ent.olhar) {
+      pose = 'pe-lado';
+      anim = 'anim-piscar';
     } else if (ent.vaga && ent.vaga.tipo === 'mesa') {
       pose = digita(ent) ? 'digitar' : 'sentado-costas';
       anim = digita(ent) ? (ent.status === 'delegando' ? 'anim-digitar-lento' : 'anim-digitar') : '';
@@ -1200,12 +1339,13 @@
       anim = 'anim-piscar';
     }
     if (ent.status === 'orfa' || ent.status === 'concluida') anim = anim === 'anim-andar' ? anim : '';
-    const chave = `${pose}|${anim}|${ent.dir === 'esq' ? 1 : 0}`;
+    const espelho = ent.rota ? ent.dir === 'esq' : ent.olhar === 'esq';
+    const chave = `${pose}|${anim}|${espelho ? 1 : 0}`;
     if (ent.pose === chave) return;
     ent.pose = chave;
     ent.q0.setAttribute('href', simbolo(ent.ap.estilo, ent.ap.principal, pose, 0));
     ent.q1.setAttribute('href', simbolo(ent.ap.estilo, ent.ap.principal, pose, 1));
-    ent.virar.setAttribute('transform', ent.rota && ent.dir === 'esq' ? 'scale(-1,1)' : '');
+    ent.virar.setAttribute('transform', espelho ? 'scale(-1,1)' : '');
     ['anim-andar', 'anim-digitar', 'anim-digitar-lento', 'anim-piscar'].forEach((c) => ent.el.classList.toggle(c, c === anim));
     ent.el.classList.toggle('andando', Boolean(ent.rota));
   }
@@ -1233,8 +1373,9 @@
   function agenda() {
     if (!montado() || document.hidden) return;
     const agora = performance.now();
+    salas.forEach((sala) => atualizarRodas(sala, agora));
     entidades.forEach((ent) => {
-      if (ent.sumindo || ent.rota || agora < ent.proxima) return;
+      if (ent.sumindo || ent.rota || ent.roda || agora < ent.proxima) return;
       const sala = salas.get(ent.sala);
       if (!sala) return;
       const naConvivencia = ent.vaga && CONVIVENCIA.includes(ent.vaga.zona);
@@ -1278,7 +1419,8 @@
     ent.y = ent.vaga ? ent.vaga.y : ent.y;
     ent.dir = 'baixo';
     posicionar(ent);
-    ent.proxima = ent.status === 'orfa' ? Infinity : performance.now() + entre(permanencia(ent));
+    ent.proxima = ent.status === 'orfa' ? Infinity : performance.now() + (ent.voltarLogo ? 600 : entre(permanencia(ent)));
+    ent.voltarLogo = false;
     atualizarPose(ent);
     ordenar(sala);
     atualizarMonitores(sala);
@@ -1324,6 +1466,184 @@
     });
     atualizarLinks();
     raf = alguem ? requestAnimationFrame(tick) : null;
+  }
+
+  /* -------------------------------------------------------------- rodas */
+
+  const escolher = (lista) => lista[Math.floor(Math.random() * lista.length)];
+  const embaralhar = (lista) => lista.map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+  const curto = (texto) => (texto.length > 16 ? `${texto.slice(0, 15)}…` : texto);
+
+  /* A cada volta da agenda: cuida das rodas que existem (quem saiu, quem
+     chegou, quem fala) e, de vez em quando, junta à toa numa roda nova. */
+  function atualizarRodas(sala, agora) {
+    sala.rodas.slice().forEach((roda) => {
+      roda.membros = roda.membros.filter((m) => !m.sumindo && m.roda === roda);
+      if (roda.membros.length < 2) {
+        encerrarRoda(sala, roda);
+        return;
+      }
+      if (roda.fase === 'indo') {
+        if (roda.membros.every((m) => !m.rota) || agora > roda.inicio + 25000) comecarConversa(sala, roda, agora);
+        return;
+      }
+      if (roda.reacao && agora >= roda.reacao.quando) {
+        if (roda.reacao.ent.roda === roda) mostrarFala(roda.reacao.ent, roda.reacao.texto, 2200);
+        roda.reacao = null;
+      }
+      if (agora >= roda.fim) encerrarRoda(sala, roda);
+      else if (agora >= roda.proximaFala) falar(sala, roda, agora);
+    });
+
+    if (agora < sala.proximaRoda || sala.rodas.length >= 2 || reduzido()) return;
+    sala.proximaRoda = agora + entre([4000, 9000]);
+    const atoa = [];
+    entidades.forEach((ent) => {
+      if (ent.sala === sala.chave && !ent.sumindo && !ent.roda && !ent.rota && OCIOSOS.includes(ent.status)) atoa.push(ent);
+    });
+    if (atoa.length < 2 || Math.random() < 0.35) return;
+    // uma roda de café por vez (balcão e copa dividem os lugares) e uma TV
+    const tipos = embaralhar(Object.keys(LIMITES_RODA)).filter((tipo) => !sala.rodas.some((r) => (r.tipo === 'tv') === (tipo === 'tv')));
+    for (const tipo of tipos) {
+      const [min, max] = LIMITES_RODA[tipo];
+      const membros = embaralhar(atoa).slice(0, max);
+      const ocupadasPorOutros = () => {
+        const set = new Set();
+        entidades.forEach((ent) => {
+          if (ent.sala === sala.chave && ent.vaga && !ent.sumindo && !membros.includes(ent)) set.add(ent.vaga.id);
+        });
+        return set;
+      };
+      let vagas = vagasRoda(sala.plano, tipo, ocupadasPorOutros());
+      if (vagas.length < membros.length) {
+        membros.length = Math.max(0, vagas.length);
+        vagas = vagasRoda(sala.plano, tipo, ocupadasPorOutros());
+      }
+      if (membros.length < min || vagas.length < membros.length) continue;
+      iniciarRoda(sala, tipo, membros, vagas.slice(0, membros.length), agora);
+      sala.proximaRoda = agora + entre([15000, 35000]);
+      return;
+    }
+  }
+
+  function iniciarRoda(sala, tipo, membros, vagas, agora) {
+    const roda = {
+      tipo, membros, fase: 'indo', inicio: agora, fim: 0, proximaFala: 0, falou: null, reacao: null, recentes: [],
+      programa: tipo === 'tv' ? escolher(PROGRAMAS) : null,
+    };
+    sala.rodas.push(roda);
+    membros.forEach((ent, i) => {
+      ent.roda = roda;
+      ent.olhar = tipo === 'conversa' ? (vagas[i].x < vagas[1 - i].x ? 'dir' : 'esq') : null;
+      if (ent.vaga && ent.vaga.id === vagas[i].id && !ent.rota) atualizarPose(ent);
+      else irPara(ent, sala, vagas[i]);
+    });
+  }
+
+  function comecarConversa(sala, roda, agora) {
+    roda.fase = 'rolando';
+    roda.fim = agora + (roda.tipo === 'tv' ? entre([30000, 50000]) : entre([20000, 32000]));
+    const abertura = FALAS.abertura[roda.programa || roda.tipo];
+    const quem = escolher(roda.membros);
+    mostrarFala(quem, escolher(abertura), 2600);
+    roda.falou = quem;
+    roda.proximaFala = agora + 3400;
+    if (roda.tipo === 'tv' && sala.tvEl) sala.tvEl.setAttribute('class', `pp-tv ligada ${roda.programa}`);
+  }
+
+  function falar(sala, roda, agora) {
+    const prontos = roda.membros.filter((m) => !m.rota);
+    if (!prontos.length) {
+      roda.proximaFala = agora + 1500;
+      return;
+    }
+    const outros = prontos.filter((m) => m !== roda.falou);
+    const quem = escolher(outros.length ? outros : prontos);
+    const nomes = [];
+    entidades.forEach((ent) => {
+      if (ent.sala === sala.chave && ent !== quem && !ent.sumindo) nomes.push(curto(rotulo(ent.tipo)));
+    });
+    // evita repetir as falas mais recentes da mesma roda
+    const contexto = { nomes: [...new Set(nomes)], data: new Date(), programa: roda.programa };
+    let fala = falaRoda(roda.tipo, contexto, Math.random);
+    for (let tentativa = 0; tentativa < 4 && !fala.evento && roda.recentes.includes(fala.texto); tentativa += 1) {
+      fala = falaRoda(roda.tipo, contexto, Math.random);
+    }
+    roda.recentes = [fala.texto, ...roda.recentes].slice(0, 4);
+    if (fala.evento) {
+      prontos.forEach((m) => mostrarFala(m, fala.texto, 2400));
+      if (sala.tvEl && fala.evento === 'gol') {
+        sala.tvEl.classList.add('gol');
+        setTimeout(() => sala.tvEl && sala.tvEl.classList.remove('gol'), 2000);
+      }
+      roda.proximaFala = agora + entre([3600, 5000]);
+    } else {
+      mostrarFala(quem, fala.texto, 2700);
+      const plateia = prontos.filter((m) => m !== quem);
+      // a reação vem depois que o balão de quem falou some: dois balões
+      // vizinhos ao mesmo tempo se cobririam
+      if (fala.reacao && plateia.length) roda.reacao = { ent: escolher(plateia), texto: fala.reacao, quando: agora + 2900 };
+      roda.proximaFala = agora + (roda.reacao ? 5600 : 3400) + entre([0, 1400]);
+    }
+    roda.falou = quem;
+  }
+
+  function encerrarRoda(sala, roda) {
+    sala.rodas = sala.rodas.filter((r) => r !== roda);
+    roda.membros.forEach((ent) => {
+      if (ent.roda !== roda) return;
+      ent.roda = null;
+      ent.olhar = null;
+      ent.proxima = performance.now() + entre([2000, 7000]);
+      atualizarPose(ent);
+    });
+    if (roda.tipo === 'tv' && sala.tvEl) sala.tvEl.setAttribute('class', 'pp-tv');
+  }
+
+  /* Alguém sai antes do fim (foi chamado ou sumiu); a roda segue se ainda
+     sobram dois, e a agenda encerra se não. */
+  function sairDaRoda(ent, texto) {
+    const roda = ent.roda;
+    ent.roda = null;
+    ent.olhar = null;
+    if (roda) roda.membros = roda.membros.filter((m) => m !== ent);
+    if (texto) {
+      mostrarFala(ent, texto, 2600);
+      ent.voltarLogo = true; // foi chamado: não fica sentado na roda ao chegar
+    }
+    atualizarPose(ent);
+  }
+
+  /* Balão de fala sobre a cabeça, acima do losango. Texto entra como
+     textContent (nunca HTML). */
+  function mostrarFala(ent, texto, ms) {
+    if (!ent.el || ent.sumindo) return;
+    let fala = ent.fala;
+    if (!fala) {
+      fala = svgEl('g', {}, 'pp-fala');
+      fala.appendChild(svgEl('rect', { y: -121, height: 17 }, 'pp-fala-fundo'));
+      fala.appendChild(svgEl('path', { d: 'M-4 -105.5 L0 -98 L4 -105.5' }, 'pp-fala-rabo'));
+      fala.appendChild(svgEl('text', { x: 0, y: -109.5, 'text-anchor': 'middle' }, 'pp-fala-texto'));
+      ent.el.appendChild(fala);
+      ent.fala = fala;
+    }
+    const el = fala.querySelector('.pp-fala-texto');
+    el.textContent = texto;
+    fala.style.display = '';
+    let largura = texto.length * 5.6;
+    try {
+      if (el.getComputedTextLength) largura = el.getComputedTextLength() || largura;
+    } catch (erro) {
+      // fora da tela o navegador pode não medir: fica a estimativa
+    }
+    const w = Math.ceil(largura + 14);
+    const fundo = fala.querySelector('.pp-fala-fundo');
+    fundo.setAttribute('x', -w / 2);
+    fundo.setAttribute('width', w);
+    clearTimeout(ent.timerFala);
+    ent.timerFala = setTimeout(() => {
+      if (ent.fala) ent.fala.style.display = 'none';
+    }, ms);
   }
 
   /* --------------------------------------------------------------- links */

@@ -211,3 +211,63 @@ test('nove execuções ativas dimensionam a sala com mesas suficientes', () => {
   const plano = px.planejarSala({ ativos: sala.ativos, total: sala.execucoes.length }, LARGURA);
   assert.ok(plano.vagas.filter((vaga) => vaga.zona === 'mesa').length >= 9);
 });
+
+/* -------------------------------------------------------- vida social */
+
+test('a TV fica na sala de estar, entre a última fileira e a parede, e todo assento continua alcançável', () => {
+  [{ ativos: 1, total: 2 }, { ativos: 3, total: 9 }, { ativos: 8, total: 20 }].forEach((contagem) => {
+    const plano = px.planejarSala(contagem, LARGURA);
+    const yUltima = 60 + (plano.linhasEstar - 1) * 43;
+    assert.ok(plano.tv.x - 11 >= px.X.estar[0] && plano.tv.x + 11 <= plano.W - 2, 'TV dentro da sala de estar');
+    assert.ok(plano.tv.y > yUltima + 9, 'TV abaixo do acesso dos assentos');
+    assert.ok(plano.tv.y + 8 <= plano.H - 3, 'TV acima da parede de baixo');
+    assert.equal(plano.tv.fila, plano.linhasEstar - 1);
+    const grade = px.criarGrade(plano);
+    const origem = plano.vagas.find((v) => v.id === 'mesa-0').acesso;
+    plano.vagas.filter((v) => v.zona === 'estar').forEach((v) => {
+      assert.ok(px.rota(grade, origem, v.acesso), `rota até ${v.id}`);
+    });
+  });
+});
+
+test('vagasRoda usa só lugares do tipo certo e nunca devolve lugar ocupado', () => {
+  const plano = px.planejarSala({ ativos: 2, total: 6 }, LARGURA);
+  const vazio = new Set();
+  const conversa = px.vagasRoda(plano, 'conversa', vazio);
+  assert.deepEqual(conversa.map((v) => v.tipo), ['balcao', 'balcao']);
+  assert.deepEqual(px.vagasRoda(plano, 'conversa', new Set(['balcao-0'])), [], 'conversa precisa dos dois balcões');
+
+  const copa = px.vagasRoda(plano, 'copa', new Set(['banqueta-0']));
+  assert.ok(copa.length >= 2 && copa.length <= px.LIMITES_RODA.copa[1]);
+  assert.ok(copa.every((v) => v.zona === 'cafe' && v.id !== 'banqueta-0'));
+  assert.equal(copa[0].tipo, 'banqueta', 'banquetas antes do balcão');
+
+  const fila = plano.tv.fila * 3;
+  const tv = px.vagasRoda(plano, 'tv', new Set([`estar-${fila + 1}`]));
+  assert.deepEqual(tv.map((v) => v.id), [`estar-${fila}`, `estar-${fila + 2}`]);
+  assert.deepEqual(px.vagasRoda(plano, 'outra', vazio), []);
+});
+
+test('falaRoda devolve texto curto, preenche o nome e só o futebol tem gol', () => {
+  let semente = 7;
+  const rnd = () => {
+    semente = (semente * 16807) % 2147483647;
+    return (semente - 1) / 2147483646;
+  };
+  const datas = [new Date(2026, 9, 9, 9), new Date(2026, 9, 12, 12), new Date(2026, 9, 14, 21)];
+  for (let i = 0; i < 600; i += 1) {
+    const tipo = ['conversa', 'copa', 'tv'][i % 3];
+    const programa = px.PROGRAMAS[i % px.PROGRAMAS.length];
+    const fala = px.falaRoda(tipo, { nomes: i % 4 ? ['Explore', 'Claude principal'] : [], data: datas[i % 3], programa }, rnd);
+    assert.ok(fala.texto && fala.texto.length <= 40, fala.texto);
+    assert.ok(!fala.texto.includes('{nome}'), fala.texto);
+    if (fala.evento) assert.ok(tipo === 'tv' && programa === 'futebol');
+    if (fala.reacao) assert.ok(fala.reacao.length <= 20);
+  }
+});
+
+test('sem nomes de colegas, a fofoca não aparece', () => {
+  const rnd = () => 0.1; // sorteio que cairia em fofoca
+  const fala = px.falaRoda('copa', { nomes: [], data: new Date(2026, 9, 14, 15) }, rnd);
+  assert.ok(px.FALAS.trabalho.includes(fala.texto));
+});
